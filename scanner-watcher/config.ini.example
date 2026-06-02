@@ -1,0 +1,45 @@
+[main]
+; المجلد اللي السكانر يحفظ فيه الملفات
+; مثال على Windows: C:\Scans
+; مثال على Mac: /Users/Shared/Scans
+watch_folder = C:\Scans
+
+; رابط النظام
+api_url = http://45.63.117.248
+
+; توكن الـ API (احصل عليه من admin النظام)
+api_token = REPLACE_WITH_YOUR_TOKEN
+
+; اسم الجهاز/المحطة (يظهر في النظام)
+device_name = Office-PC-1
+
+; مجلد فرعي للملفات المرفوعة (داخل watch_folder)
+processed_folder = processed
+
+; تفعيل الجسر المحلي للسماح للمتصفح بطلب مسح ضوئي مباشر
+bridge_enabled = true
+bridge_port = 9999
+
+; اسم السكانر المفضّل (جزء من الاسم يكفي - case insensitive)
+; مثال: scanjet 8200 — لو فاضي يستخدم أول سكانر يجده
+preferred_scanner = scanjet
+
+; مصدر المسح:
+;   feeder  = درج التغذية التلقائي ADF (الأعلى)
+;   flatbed = الزجاج
+;   auto    = السكانر يقرر
+scan_source = feeder
+
+; ─────────────────────────────────────────────
+; دمج صفحات السكانر في ملف واحد (PDF)
+; إذا السكانر يخرج صفحة-صفحة (JPG/PNG)، هذا الخيار يجمعها تلقائياً ويُرسل ملف PDF واحد للنظام.
+; ─────────────────────────────────────────────
+
+; تفعيل الدمج (موصى به)
+batch_enabled = true
+
+; نافذة التجميع بالثواني: ينتظر هذا الوقت بعد آخر صفحة قبل إنشاء PDF
+batch_window_seconds = 8
+
+; أقل عدد صفحات حتى يدمجها كـ PDF (لو صفحة واحدة يرفعها كما هي)
+batch_min_files = 2

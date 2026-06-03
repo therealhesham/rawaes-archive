@@ -250,7 +250,7 @@ export default function Login({ status, canResetPassword }) {
 
                         {/* Mobile footer */}
                         <p className="lg:hidden text-center text-xs text-gray-400 mt-6">
-                            © 2026 شركة رواس لتأجير السيارات
+            جميع الحقوق محفوظة © مجموعة روائس 2026
                         </p>
                     </div>
                 </div>

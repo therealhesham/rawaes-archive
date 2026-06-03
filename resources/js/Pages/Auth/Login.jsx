@@ -96,7 +96,7 @@ export default function Login({ status, canResetPassword }) {
 
                     {/* Footer */}
                     <div className="relative z-10 flex items-center justify-between text-xs text-white/40">
-                        <span>© 2026 شركة رواس لتأجير السيارات</span>
+                        <span>© 2026 مجموعة روائس</span>
                         <span>المدينة المنورة 🇸🇦</span>
                     </div>
                 </div>

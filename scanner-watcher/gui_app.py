@@ -88,7 +88,7 @@ class WatcherGUI:
         self.cfg = load_config()
 
         main = self.cfg["main"]
-        self.api_url = StringVar(value=main.get("api_url", "http://45.63.117.248"))
+        self.api_url = StringVar(value=main.get("api_url", "https://archive.rawaes.com"))
         self.api_token = StringVar(value=main.get("api_token", ""))
         self.device_name = StringVar(value=main.get("device_name", "Office-PC-1"))
         self.watch_folder = StringVar(value=main.get("watch_folder", r"C:\Scans"))

@@ -89,8 +89,8 @@ OK "Packages installed"
 Step 5 "Configuration"
 Write-Host ""
 
-$serverUrl = Read-Host "      رابط النظام (مثال: http://45.63.117.248)"
-if (-not $serverUrl) { $serverUrl = 'http://45.63.117.248' }
+$serverUrl = Read-Host "      رابط النظام (مثال: https://archive.rawaes.com)"
+if (-not $serverUrl) { $serverUrl = 'https://archive.rawaes.com' }
 
 $apiToken = Read-Host "      API Token"
 while (-not $apiToken) {

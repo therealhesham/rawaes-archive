@@ -29,7 +29,7 @@ def _set_property(props, prop_id, value):
 
 def scan_via_wia_multi(output_dir: Path, color: str = 'color', dpi: int = 200,
                        preferred_scanner: str = '', source: str = 'feeder',
-                       max_pages: int = 100) -> list:
+                       duplex: bool = False, max_pages: int = 100) -> list:
     """
     Scan all available pages from the ADF (feeder) in one go.
     Returns list of file paths.
@@ -99,11 +99,17 @@ def scan_via_wia_multi(output_dir: Path, color: str = 'color', dpi: int = 200,
         WIA_DPS_PAGES = 3096
         WIA_FORMAT_JPEG = '{B96B3CAE-0728-11D3-9D7B-0000F81EF32E}'
 
-        source_value = 1 if source == 'feeder' else 2 if source == 'flatbed' else None
+        source_value = None
+        if source == 'flatbed':
+            source_value = 2
+        elif source == 'feeder' and duplex:
+            source_value = 1 | 4
 
         if source_value is not None:
             if _set_property(device.Properties, WIA_DPS_DOCUMENT_HANDLING_SELECT, source_value):
-                log.info(f'📥 Source: {source}')
+                log.info(f'📥 Source: {source} | duplex={duplex}')
+        else:
+            log.info(f'📥 Source: {source} | duplex={duplex} (device default)')
 
         output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -201,7 +207,8 @@ def scan_via_wia_multi(output_dir: Path, color: str = 'color', dpi: int = 200,
 
 
 def scan_via_wia(output_dir: Path, color: str = 'color', dpi: int = 200,
-                 preferred_scanner: str = '', source: str = 'feeder') -> Optional[Path]:
+                 preferred_scanner: str = '', source: str = 'feeder',
+                 duplex: bool = False) -> Optional[Path]:
     """
     Trigger a scan using Windows Image Acquisition (WIA).
     Returns the path of the saved scan, or None on failure.
@@ -254,19 +261,23 @@ def scan_via_wia(output_dir: Path, color: str = 'color', dpi: int = 200,
         WIA_DPS_PAGES = 3096
 
         source_value = None
-        if source == 'feeder':
-            source_value = 1
-        elif source == 'flatbed':
+        if source == 'flatbed':
             source_value = 2
+        elif source == 'feeder' and duplex:
+            source_value = 1 | 4
+        elif source == 'auto':
+            source_value = None
 
         if source_value is not None:
             ok = _set_property(device.Properties, WIA_DPS_DOCUMENT_HANDLING_SELECT, source_value)
             if ok:
-                log.info(f'📥 Source set to: {source}')
+                log.info(f'📥 Source set to: {source} | duplex={duplex}')
                 # Set pages = 1 (scan one page from feeder)
                 _set_property(device.Properties, WIA_DPS_PAGES, 1)
             else:
                 log.warning(f'⚠️ Could not set source to {source} - device may not support it')
+        else:
+            log.info(f'📥 Source set to: {source} | duplex={duplex} (device default)')
 
         item = device.Items(1)
 
@@ -338,7 +349,16 @@ def list_scanners() -> list:
             pass
 
 
-def create_app(scan_token: str, scans_folder: Path, preferred_scanner: str = '', default_source: str = 'feeder'):
+def create_app(
+    scan_token: str,
+    scans_folder: Path,
+    preferred_scanner: str = '',
+    default_source: str = 'feeder',
+    default_color: str = 'gray',
+    default_dpi: int = 150,
+    default_duplex: bool = False,
+    default_max_pages: int = 100,
+):
     """Create the Flask bridge application."""
     try:
         from flask import Flask, request, jsonify, send_file
@@ -382,6 +402,19 @@ def create_app(scan_token: str, scans_folder: Path, preferred_scanner: str = '',
             return jsonify({'error': 'unauthorized'}), 401
         return jsonify({'scanners': list_scanners()})
 
+    @app.route('/settings', methods=['GET'])
+    def settings():
+        if request.headers.get('X-Scan-Token') != scan_token:
+            return jsonify({'error': 'unauthorized'}), 401
+        return jsonify({
+            'preferred_scanner': preferred_scanner,
+            'source': default_source,
+            'color': default_color,
+            'dpi': default_dpi,
+            'duplex': default_duplex,
+            'max_pages': default_max_pages,
+        })
+
     @app.route('/scan-batch', methods=['POST', 'OPTIONS'])
     def scan_batch():
         """Scan all pages from feeder. Returns JSON with array of base64 images."""
@@ -392,24 +425,41 @@ def create_app(scan_token: str, scans_folder: Path, preferred_scanner: str = '',
             return jsonify({'error': 'unauthorized'}), 401
 
         body = request.get_json(silent=True) or {}
-        color = body.get('color', 'color')
-        dpi = int(body.get('dpi', 200))
+        color = body.get('color', default_color)
+        dpi = int(body.get('dpi', default_dpi))
         source = body.get('source', default_source)
+        duplex = bool(body.get('duplex', default_duplex))
+        max_pages = int(body.get('max_pages', default_max_pages))
 
-        log.info(f'📥 Batch scan: source={source}, color={color}, dpi={dpi}')
+        log.info(f'📥 Batch scan: source={source}, color={color}, dpi={dpi}, duplex={duplex}, max_pages={max_pages}')
 
         tmp_dir = Path(tempfile.gettempdir()) / 'rawaes_scans'
         tmp_dir.mkdir(parents=True, exist_ok=True)
 
-        paths = scan_via_wia_multi(
-            tmp_dir, color=color, dpi=dpi,
-            preferred_scanner=preferred_scanner, source=source,
-        )
+        if source == 'flatbed':
+            single_path = scan_via_wia(
+                tmp_dir,
+                color=color,
+                dpi=dpi,
+                preferred_scanner=preferred_scanner,
+                source=source,
+                duplex=duplex,
+            )
+            paths = [single_path] if single_path else []
+        else:
+            paths = scan_via_wia_multi(
+                tmp_dir, color=color, dpi=dpi,
+                preferred_scanner=preferred_scanner, source=source,
+                duplex=duplex, max_pages=max_pages,
+            )
 
         if not paths:
+            message = 'لم يتم مسح أي صفحة. تأكد من وجود ورق في الدرج وأن السكانر جاهز.'
+            if source == 'flatbed':
+                message = 'لم يتم مسح أي صفحة من الزجاج. تأكد أن الورقة موضوعة على الزجاج وأن السكانر جاهز.'
             return jsonify({
                 'error': 'no_pages',
-                'message': 'لم يتم مسح أي صفحة. تأكد من وجود ورق في الدرج وأن السكانر جاهز.',
+                'message': message,
             }), 500
 
         # Convert all to base64
@@ -440,18 +490,26 @@ def create_app(scan_token: str, scans_folder: Path, preferred_scanner: str = '',
             return jsonify({'error': 'unauthorized'}), 401
 
         body = request.get_json(silent=True) or {}
-        color = body.get('color', 'color')  # color | gray | bw
-        dpi = int(body.get('dpi', 200))
+        color = body.get('color', default_color)  # color | gray | bw
+        dpi = int(body.get('dpi', default_dpi))
         source = body.get('source', default_source)  # feeder | flatbed | auto
+        duplex = bool(body.get('duplex', default_duplex))
 
-        log.info(f'📥 Scan request: source={source}, color={color}, dpi={dpi}')
+        log.info(f'📥 Scan request: source={source}, color={color}, dpi={dpi}, duplex={duplex}')
 
         # Use a unique temp file (not directory) to avoid cleanup issues on Windows
         import io, uuid
         tmp_dir = Path(tempfile.gettempdir()) / 'rawaes_scans'
         tmp_dir.mkdir(parents=True, exist_ok=True)
 
-        filepath = scan_via_wia(tmp_dir, color=color, dpi=dpi, preferred_scanner=preferred_scanner, source=source)
+        filepath = scan_via_wia(
+            tmp_dir,
+            color=color,
+            dpi=dpi,
+            preferred_scanner=preferred_scanner,
+            source=source,
+            duplex=duplex,
+        )
         if not filepath or not filepath.exists():
             return jsonify({'error': 'scan_failed', 'message': 'Could not scan. Make sure scanner is on and ready.'}), 500
 
@@ -480,9 +538,28 @@ def create_app(scan_token: str, scans_folder: Path, preferred_scanner: str = '',
     return app
 
 
-def run_bridge(scan_token: str, scans_folder: Path, port: int = 9999, preferred_scanner: str = '', default_source: str = 'feeder'):
+def run_bridge(
+    scan_token: str,
+    scans_folder: Path,
+    port: int = 9999,
+    preferred_scanner: str = '',
+    default_source: str = 'feeder',
+    default_color: str = 'gray',
+    default_dpi: int = 150,
+    default_duplex: bool = False,
+    default_max_pages: int = 100,
+):
     """Start the bridge in a background thread."""
-    app = create_app(scan_token, scans_folder, preferred_scanner=preferred_scanner, default_source=default_source)
+    app = create_app(
+        scan_token,
+        scans_folder,
+        preferred_scanner=preferred_scanner,
+        default_source=default_source,
+        default_color=default_color,
+        default_dpi=default_dpi,
+        default_duplex=default_duplex,
+        default_max_pages=default_max_pages,
+    )
     if not app:
         log.warning('⚠️  Bridge disabled (Flask not installed)')
         return

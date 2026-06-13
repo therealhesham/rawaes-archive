@@ -13,8 +13,11 @@ export default function MultiPageScan({ open, onClose, onComplete, scanToken }) 
     const [generating, setGenerating] = useState(false);
     const [error, setError] = useState(null);
     const [defaultName, setDefaultName] = useState('scan');
+    const [source, setSource] = useState('feeder');  // 'feeder' | 'flatbed' | 'auto'
     const [color, setColor] = useState('gray');      // 'color' | 'gray' | 'bw'
     const [dpi, setDpi] = useState(150);             // 100 | 150 | 200 | 300
+    const [duplex, setDuplex] = useState(false);
+    const [maxPages, setMaxPages] = useState(100);
 
     useEffect(() => {
         if (!open) {
@@ -22,7 +25,26 @@ export default function MultiPageScan({ open, onClose, onComplete, scanToken }) 
             pages.forEach(p => URL.revokeObjectURL(p.dataUrl));
             setPages([]);
             setError(null);
+            return;
         }
+
+        const loadBridgeSettings = async () => {
+            try {
+                const res = await fetch(`${SCAN_BRIDGE_URL}/settings`, {
+                    headers: { 'X-Scan-Token': scanToken },
+                });
+                if (!res.ok) return;
+                const settings = await res.json();
+                if (settings.source) setSource(settings.source);
+                if (settings.color) setColor(settings.color);
+                if (settings.dpi) setDpi(Number(settings.dpi));
+                if (typeof settings.duplex === 'boolean') setDuplex(settings.duplex);
+                if (settings.max_pages) setMaxPages(Number(settings.max_pages));
+            } catch {
+            }
+        };
+
+        loadBridgeSettings();
     }, [open]);
 
     // Convert base64 to Blob
@@ -33,7 +55,7 @@ export default function MultiPageScan({ open, onClose, onComplete, scanToken }) 
         return new Blob([arr], { type: mime });
     };
 
-    // Scan all pages from ADF in one batch
+    // Scan from local bridge
     const scanPage = async () => {
         setScanning(true);
         setError(null);
@@ -41,13 +63,15 @@ export default function MultiPageScan({ open, onClose, onComplete, scanToken }) 
             const healthRes = await fetch(`${SCAN_BRIDGE_URL}/health`).catch(() => null);
             if (!healthRes || !healthRes.ok) throw new Error('CONNECTION');
 
-            const res = await fetch(`${SCAN_BRIDGE_URL}/scan-batch`, {
+            const isFlatbed = source === 'flatbed';
+            const endpoint = isFlatbed ? '/scan' : '/scan-batch';
+            const res = await fetch(`${SCAN_BRIDGE_URL}${endpoint}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-Scan-Token': scanToken,
                 },
-                body: JSON.stringify({ color, dpi, source: 'feeder' }),
+                body: JSON.stringify({ color, dpi, source, duplex, max_pages: maxPages }),
             });
 
             if (!res.ok) {
@@ -55,19 +79,33 @@ export default function MultiPageScan({ open, onClose, onComplete, scanToken }) 
                 throw new Error(data.message || `فشل المسح (${res.status})`);
             }
 
-            const result = await res.json();
-            if (!result.pages || result.pages.length === 0) {
-                throw new Error('لم يتم مسح أي صفحة. تأكد من وجود ورق في الدرج.');
-            }
+            let newPages = [];
+            if (isFlatbed) {
+                const blob = await res.blob();
+                if (!blob || blob.size === 0) {
+                    throw new Error('لم يتم مسح أي صفحة من الزجاج. تأكد أن السكانر جاهز وأن الورقة موضوعة على الزجاج.');
+                }
 
-            const newPages = result.pages.map(p => {
-                const blob = base64ToBlob(p.data, p.mime);
-                return {
+                newPages = [{
                     blob,
                     dataUrl: URL.createObjectURL(blob),
                     id: Date.now() + Math.random(),
-                };
-            });
+                }];
+            } else {
+                const result = await res.json();
+                if (!result.pages || result.pages.length === 0) {
+                    throw new Error('لم يتم مسح أي صفحة. تأكد من وجود ورق في الدرج وأن السكانر جاهز.');
+                }
+
+                newPages = result.pages.map(p => {
+                    const blob = base64ToBlob(p.data, p.mime);
+                    return {
+                        blob,
+                        dataUrl: URL.createObjectURL(blob),
+                        id: Date.now() + Math.random(),
+                    };
+                });
+            }
 
             setPages(prev => [...prev, ...newPages]);
         } catch (err) {
@@ -161,7 +199,9 @@ export default function MultiPageScan({ open, onClose, onComplete, scanToken }) 
                         </div>
                         <div>
                             <h3 className="font-bold">مسح ضوئي متعدد الصفحات</h3>
-                            <p className="text-xs text-white/70">ضع كل الأوراق في الدرج وسيمسحها دفعة واحدة</p>
+                            <p className="text-xs text-white/70">
+                                اختر الدرج لمسح عدة صفحات أو الزجاج لمسح صفحة واحدة
+                            </p>
                         </div>
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg" disabled={generating}>
@@ -191,6 +231,15 @@ export default function MultiPageScan({ open, onClose, onComplete, scanToken }) 
                             <p className="text-sm font-medium text-gray-700 mb-3">إعدادات المسح</p>
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
+                                    <label className="block text-xs text-gray-500 mb-1">الجارور / المصدر</label>
+                                    <select value={source} onChange={e => setSource(e.target.value)}
+                                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                                        <option value="feeder">ADF / الدرج</option>
+                                        <option value="flatbed">الزجاج</option>
+                                        <option value="auto">تلقائي</option>
+                                    </select>
+                                </div>
+                                <div>
                                     <label className="block text-xs text-gray-500 mb-1">اللون</label>
                                     <select value={color} onChange={e => setColor(e.target.value)}
                                         className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
@@ -208,6 +257,22 @@ export default function MultiPageScan({ open, onClose, onComplete, scanToken }) 
                                         <option value="200">عالية (200)</option>
                                         <option value="300">عالية جداً (300) - بطيء</option>
                                     </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs text-gray-500 mb-1">أقصى عدد صفحات</label>
+                                    <select value={maxPages} onChange={e => setMaxPages(parseInt(e.target.value))}
+                                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                                        <option value="25">25</option>
+                                        <option value="50">50</option>
+                                        <option value="100">100</option>
+                                        <option value="150">150</option>
+                                    </select>
+                                </div>
+                                <div className="flex items-end">
+                                    <label className="inline-flex items-center gap-2 text-sm text-gray-700 pb-2">
+                                        <input type="checkbox" checked={duplex} onChange={e => setDuplex(e.target.checked)} />
+                                        وجهين (Duplex)
+                                    </label>
                                 </div>
                             </div>
                             <div className="mt-3 p-3 bg-amber-50 border border-amber-100 rounded-lg flex items-start gap-2">

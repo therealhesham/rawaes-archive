@@ -13,11 +13,22 @@ class DocumentFolder extends Model
     use SoftDeletes;
 
     protected $fillable = [
-        'sector_id', 'parent_id', 'name', 'name_en',
+        'sector_id',
+        'parent_id',
+        'name',
+        'name_en',
         'qr_code',
         'inventory_code',
-        'is_checked_out', 'checked_out_to', 'checked_out_by', 'checked_out_at', 'checked_out_notes',
-        'description', 'icon', 'color', 'sort_order', 'is_active',
+        'is_checked_out',
+        'checked_out_to',
+        'checked_out_by',
+        'checked_out_at',
+        'checked_out_notes',
+        'description',
+        'icon',
+        'color',
+        'sort_order',
+        'is_active',
     ];
 
     protected $casts = ['is_active' => 'boolean'];
@@ -36,8 +47,10 @@ class DocumentFolder extends Model
     protected static function booted(): void
     {
         static::creating(function (self $folder) {
-            if (!$folder->inventory_code) $folder->inventory_code = static::generateInventoryCode();
-            if (!$folder->qr_code) $folder->qr_code = $folder->inventory_code; // default QR value = short code
+            if (!$folder->inventory_code)
+                $folder->inventory_code = static::generateInventoryCode();
+            if (!$folder->qr_code)
+                $folder->qr_code = $folder->inventory_code; // default QR value = short code
         });
     }
 
@@ -53,7 +66,9 @@ class DocumentFolder extends Model
 
     public function children(): HasMany
     {
-        return $this->hasMany(DocumentFolder::class, 'parent_id')->orderBy('sort_order');
+        return $this->hasMany(DocumentFolder::class, 'parent_id')
+            ->orderBy('sort_order')
+            ->with('children');
     }
 
     public function documents(): HasMany

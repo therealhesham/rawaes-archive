@@ -51,12 +51,15 @@ python watcher.py
 
 ---
 
-## 🖥️ تطبيق سطح المكتب (EXE) — سهل النقل
+## 🖥️ تطبيق سطح المكتب وملف التصطيب
 
 يوجد واجهة بسيطة لسطح المكتب تسمح بـ:
 - عرض حالة الاتصال بالنظام
 - حفظ الإعدادات بسهولة
 - اختيار السكانر المفضل
+- اختيار الجارور / مصدر المسح
+- اختيار الألوان و `DPI`
+- تفعيل `duplex`
 - تشغيل/إيقاف المراقب بضغطة زر
 
 تشغيلها (للتجربة):
@@ -64,14 +67,36 @@ python watcher.py
 python gui_app.py
 ```
 
-إنشاء ملف EXE (على Windows):
+إنشاء ملف EXE وملف Setup (على Windows):
 1) افتح PowerShell داخل مجلد `scanner-watcher`
 2) شغّل:
 ```powershell
 .\build-exe.ps1
 ```
 الناتج سيكون:
-`dist\RawaesWatcher.exe`
+- `dist\RawaesWatcher.exe`
+- `dist\RawaesWatcherWorker.exe`
+- `dist\RawaesWatcherSetup.exe` إذا كان **Inno Setup 6** مثبتًا
+
+### التثبيت الأسهل للمستخدم النهائي
+
+إذا تم إنشاء:
+`dist\RawaesWatcherSetup.exe`
+
+فهذا هو الملف الذي تنقله إلى أجهزة Windows الأخرى.
+
+المستخدم فقط:
+1. يشغّل `RawaesWatcherSetup.exe`
+2. يضغط Next / Install
+3. يفتح البرنامج من سطح المكتب
+4. يجد مجلد السكان أُنشئ تلقائياً
+5. يضع الإعدادات من داخل الواجهة نفسها
+6. يضغط "حفظ الإعدادات" ثم "تشغيل"
+
+لا حاجة إلى:
+- `Notepad`
+- Python
+- أوامر PowerShell
 
 ---
 

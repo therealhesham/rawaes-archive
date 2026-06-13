@@ -1,8 +1,8 @@
 [main]
 ; المجلد اللي السكانر يحفظ فيه الملفات
-; مثال على Windows: C:\Scans
+; مثال على Windows: C:\Users\YourUser\Documents\Rawaes Scans
 ; مثال على Mac: /Users/Shared/Scans
-watch_folder = C:\Scans
+watch_folder =
 
 ; رابط النظام
 api_url = http://45.63.117.248
@@ -29,6 +29,21 @@ preferred_scanner = scanjet
 ;   flatbed = الزجاج
 ;   auto    = السكانر يقرر
 scan_source = feeder
+
+; إعدادات المسح الافتراضية للجسر المحلي والبرنامج
+; color = ملوّن
+; gray  = تدرج رمادي
+; bw    = أبيض/أسود
+scan_color = gray
+
+; قيم شائعة: 100 / 150 / 200 / 300
+scan_dpi = 150
+
+; تفعيل الوجهين عند دعم السكانر لذلك (ADF duplex)
+scan_duplex = false
+
+; أقصى عدد صفحات في دفعة ADF fallback
+scan_max_pages = 100
 
 ; ─────────────────────────────────────────────
 ; دمج صفحات السكانر في ملف واحد (PDF)

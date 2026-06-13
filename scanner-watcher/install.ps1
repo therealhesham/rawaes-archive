@@ -6,12 +6,12 @@
   Installs Python (if missing), downloads watcher files,
   configures, creates shortcuts, and adds to Windows startup.
 .EXAMPLE
-  irm https://raw.githubusercontent.com/therealhesham/rawaes-archive/main/scanner-watcher/install.ps1 | iex
+  irm https://raw.githubusercontent.com/NourAlasmar/rawaes-archive/main/scanner-watcher/install.ps1 | iex
 #>
 
 $ErrorActionPreference = 'Stop'
 $InstallDir = "$env:LOCALAPPDATA\RawaesWatcher"
-$RepoRaw = 'https://raw.githubusercontent.com/therealhesham/rawaes-archive/main/scanner-watcher'
+$RepoRaw = 'https://raw.githubusercontent.com/NourAlasmar/rawaes-archive/main/scanner-watcher'
 
 # UTF-8 console for Arabic
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -89,8 +89,8 @@ OK "Packages installed"
 Step 5 "Configuration"
 Write-Host ""
 
-$serverUrl = Read-Host "      رابط النظام (مثال: https://archive.rawaes.com)"
-if (-not $serverUrl) { $serverUrl = 'https://archive.rawaes.com' }
+$serverUrl = Read-Host "      رابط النظام (مثال: http://45.63.117.248)"
+if (-not $serverUrl) { $serverUrl = 'http://45.63.117.248' }
 
 $apiToken = Read-Host "      API Token"
 while (-not $apiToken) {

@@ -24,19 +24,52 @@ from tkinter import Tk, StringVar, BooleanVar, IntVar, ttk, messagebox, filedial
 import requests
 
 
-APP_DIR = Path(__file__).resolve().parent
+def get_runtime_dir() -> Path:
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parent
+
+
+APP_DIR = get_runtime_dir()
 CONFIG_PATH = APP_DIR / "config.ini"
 CONFIG_EXAMPLE_PATH = APP_DIR / "config.ini.example"
 WATCHER_PATH = APP_DIR / "watcher.py"
+WORKER_EXE_PATH = APP_DIR / "RawaesWatcherWorker.exe"
+
+
+def default_watch_folder() -> Path:
+    return Path.home() / "Documents" / "Rawaes Scans"
+
+
+def ensure_watch_folder_exists(path_value: str) -> Path:
+    folder = Path(path_value).expanduser()
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "processed").mkdir(parents=True, exist_ok=True)
+    return folder
 
 
 def ensure_config_exists() -> None:
-    if CONFIG_PATH.exists():
-        return
-    if CONFIG_EXAMPLE_PATH.exists():
-        CONFIG_PATH.write_text(CONFIG_EXAMPLE_PATH.read_text(encoding="utf-8"), encoding="utf-8")
-    else:
-        CONFIG_PATH.write_text("[main]\n", encoding="utf-8")
+    if not CONFIG_PATH.exists():
+        if CONFIG_EXAMPLE_PATH.exists():
+            CONFIG_PATH.write_text(CONFIG_EXAMPLE_PATH.read_text(encoding="utf-8"), encoding="utf-8")
+        else:
+            CONFIG_PATH.write_text("[main]\n", encoding="utf-8")
+
+    cfg = configparser.ConfigParser()
+    cfg.read(CONFIG_PATH, encoding="utf-8")
+    if "main" not in cfg:
+        cfg["main"] = {}
+
+    changed = False
+    if not cfg["main"].get("watch_folder", "").strip():
+        cfg["main"]["watch_folder"] = str(default_watch_folder())
+        changed = True
+    if not cfg["main"].get("processed_folder", "").strip():
+        cfg["main"]["processed_folder"] = "processed"
+        changed = True
+
+    if changed:
+        save_config(cfg)
 
 
 def load_config() -> configparser.ConfigParser:
@@ -88,15 +121,19 @@ class WatcherGUI:
         self.cfg = load_config()
 
         main = self.cfg["main"]
-        self.api_url = StringVar(value=main.get("api_url", "https://archive.rawaes.com"))
+        self.api_url = StringVar(value=main.get("api_url", "http://45.63.117.248"))
         self.api_token = StringVar(value=main.get("api_token", ""))
         self.device_name = StringVar(value=main.get("device_name", "Office-PC-1"))
-        self.watch_folder = StringVar(value=main.get("watch_folder", r"C:\Scans"))
+        self.watch_folder = StringVar(value=main.get("watch_folder", str(default_watch_folder())))
 
         self.bridge_enabled = BooleanVar(value=main.get("bridge_enabled", "true").lower() == "true")
         self.bridge_port = IntVar(value=int(main.get("bridge_port", "9999") or 9999))
         self.preferred_scanner = StringVar(value=main.get("preferred_scanner", ""))
         self.scan_source = StringVar(value=main.get("scan_source", "feeder"))
+        self.scan_color = StringVar(value=main.get("scan_color", "gray"))
+        self.scan_dpi = IntVar(value=int(main.get("scan_dpi", "150") or 150))
+        self.scan_duplex = BooleanVar(value=main.get("scan_duplex", "false").lower() == "true")
+        self.scan_max_pages = IntVar(value=int(main.get("scan_max_pages", "100") or 100))
 
         self.batch_enabled = BooleanVar(value=main.get("batch_enabled", "true").lower() == "true")
         self.batch_window_seconds = IntVar(value=int(main.get("batch_window_seconds", "8") or 8))
@@ -109,6 +146,7 @@ class WatcherGUI:
         self._stop_status = False
 
         self._build_ui()
+        self._ensure_runtime_folders()
         self._start_status_loop()
 
     def _build_ui(self) -> None:
@@ -153,6 +191,14 @@ class WatcherGUI:
 
         row = ttk.Frame(settings)
         row.pack(fill="x", **pad)
+        ttk.Label(
+            row,
+            text="سيتم إنشاء المجلد تلقائياً إذا لم يكن موجوداً",
+            foreground="#6b7280",
+        ).pack(side="right")
+
+        row = ttk.Frame(settings)
+        row.pack(fill="x", **pad)
         ttk.Checkbutton(row, text="تفعيل الجسر المحلي (مسح من المتصفح)", variable=self.bridge_enabled).pack(side="right")
         ttk.Label(row, text="Port").pack(side="right", padx=(20, 6))
         ttk.Entry(row, textvariable=self.bridge_port, width=8).pack(side="right")
@@ -160,7 +206,7 @@ class WatcherGUI:
         row = ttk.Frame(settings)
         row.pack(fill="x", **pad)
         ttk.Label(row, text="مصدر المسح").pack(side="right")
-        ttk.Combobox(row, textvariable=self.scan_source, values=["feeder", "flatbed"], state="readonly", width=12).pack(side="right", padx=8)
+        ttk.Combobox(row, textvariable=self.scan_source, values=["feeder", "flatbed", "auto"], state="readonly", width=12).pack(side="right", padx=8)
 
         row = ttk.Frame(settings)
         row.pack(fill="x", **pad)
@@ -168,6 +214,22 @@ class WatcherGUI:
         self.scanner_combo = ttk.Combobox(row, textvariable=self.preferred_scanner, values=[], width=45)
         self.scanner_combo.pack(side="right", padx=8)
         ttk.Button(row, text="جلب قائمة السكانرات", command=self.on_refresh_scanners).pack(side="left")
+
+        scan_opts = ttk.LabelFrame(self.root, text="إعدادات السكانر")
+        scan_opts.pack(fill="x", **pad)
+
+        row = ttk.Frame(scan_opts)
+        row.pack(fill="x", **pad)
+        ttk.Label(row, text="الألوان").pack(side="right")
+        ttk.Combobox(row, textvariable=self.scan_color, values=["gray", "color", "bw"], state="readonly", width=12).pack(side="right", padx=8)
+        ttk.Label(row, text="DPI").pack(side="right", padx=(20, 6))
+        ttk.Combobox(row, textvariable=self.scan_dpi, values=[100, 150, 200, 300], state="readonly", width=8).pack(side="right")
+        ttk.Checkbutton(row, text="وجهين (Duplex)", variable=self.scan_duplex).pack(side="left")
+
+        row = ttk.Frame(scan_opts)
+        row.pack(fill="x", **pad)
+        ttk.Label(row, text="أقصى عدد صفحات في دفعة ADF").pack(side="right")
+        ttk.Entry(row, textvariable=self.scan_max_pages, width=8).pack(side="right", padx=8)
 
         # Batch
         batch = ttk.LabelFrame(self.root, text="دمج الصفحات (Batch)")
@@ -193,6 +255,7 @@ class WatcherGUI:
         msg = (
             "- هذا البرنامج يشغّل watcher.py في الخلفية.\n"
             "- لتجميع 20 ورقة في ملف واحد: ضعها في ADF + تأكد أن السكانر يحفظ صور صفحة-صفحة داخل watch_folder.\n"
+            "- يمكن تحديد السكانر، الجارور، الألوان، DPI، والوجهين من نفس الواجهة.\n"
             "- تأكد تثبيت Python + المكتبات: requests watchdog flask flask-cors pywin32 pillow.\n"
         )
         ttk.Label(note, text=msg, justify="right").pack(anchor="ne", padx=10, pady=10)
@@ -215,17 +278,24 @@ class WatcherGUI:
         main["api_url"] = self.api_url.get().strip()
         main["api_token"] = self.api_token.get().strip()
         main["device_name"] = self.device_name.get().strip()
-        main["watch_folder"] = self.watch_folder.get().strip()
+        watch_folder = self.watch_folder.get().strip() or str(default_watch_folder())
+        main["watch_folder"] = watch_folder
         main["bridge_enabled"] = "true" if self.bridge_enabled.get() else "false"
         main["bridge_port"] = str(self.bridge_port.get())
         main["preferred_scanner"] = self.preferred_scanner.get().strip()
         main["scan_source"] = self.scan_source.get().strip()
+        main["scan_color"] = self.scan_color.get().strip()
+        main["scan_dpi"] = str(self.scan_dpi.get())
+        main["scan_duplex"] = "true" if self.scan_duplex.get() else "false"
+        main["scan_max_pages"] = str(self.scan_max_pages.get())
 
         main["batch_enabled"] = "true" if self.batch_enabled.get() else "false"
         main["batch_window_seconds"] = str(self.batch_window_seconds.get())
         main["batch_min_files"] = str(self.batch_min_files.get())
 
+        ensure_watch_folder_exists(watch_folder)
         save_config(self.cfg)
+        self.watch_folder.set(watch_folder)
         messagebox.showinfo("تم", "تم حفظ الإعدادات بنجاح.")
 
     def on_test_connection(self) -> None:
@@ -241,11 +311,10 @@ class WatcherGUI:
 
         self.on_save()
 
-        if not WATCHER_PATH.exists():
-            messagebox.showerror("خطأ", f"لم يتم العثور على {WATCHER_PATH}")
+        cmd = self._build_watcher_command()
+        if not cmd:
             return
 
-        cmd = [sys.executable, str(WATCHER_PATH)]
         self.proc = subprocess.Popen(
             cmd,
             cwd=str(APP_DIR),
@@ -280,6 +349,31 @@ class WatcherGUI:
         t = threading.Thread(target=loop, daemon=True)
         t.start()
 
+    def _build_watcher_command(self) -> list[str] | None:
+        if getattr(sys, "frozen", False):
+            if WORKER_EXE_PATH.exists():
+                return [str(WORKER_EXE_PATH)]
+
+            messagebox.showerror(
+                "خطأ",
+                "لم يتم العثور على ملف RawaesWatcherWorker.exe بجانب البرنامج.\n"
+                "أعد إنشاء الحزمة أو تأكد من تثبيت جميع ملفات البرنامج.",
+            )
+            return None
+
+        if not WATCHER_PATH.exists():
+            messagebox.showerror("خطأ", f"لم يتم العثور على {WATCHER_PATH}")
+            return None
+
+        return [sys.executable, str(WATCHER_PATH)]
+
+    def _ensure_runtime_folders(self) -> None:
+        try:
+            folder = ensure_watch_folder_exists(self.watch_folder.get().strip() or str(default_watch_folder()))
+            self.watch_folder.set(str(folder))
+        except Exception:
+            pass
+
     def run(self) -> None:
         def on_close():
             self._stop_status = True
@@ -299,4 +393,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

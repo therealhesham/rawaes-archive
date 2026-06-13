@@ -14,11 +14,13 @@ class FolderController extends Controller
 {
     public function index()
     {
-        $sectors = Sector::with(['folders' => function ($q) {
-            $q->whereNull('parent_id')
-              ->with('children.children')
-              ->orderBy('sort_order');
-        }])->where('is_active', true)->get();
+        $sectors = Sector::with([
+            'folders' => function ($q) {
+                $q->whereNull('parent_id')
+                    ->with('children')
+                    ->orderBy('sort_order');
+            }
+        ])->where('is_active', true)->get();
 
         return Inertia::render('Archive/Folders/Index', [
             'sectors' => $sectors,
@@ -75,11 +77,13 @@ class FolderController extends Controller
 
     public function tree()
     {
-        $sectors = Sector::with(['folders' => function ($q) {
-            $q->whereNull('parent_id')
-              ->with('children.children')
-              ->orderBy('sort_order');
-        }])->where('is_active', true)->get();
+        $sectors = Sector::with([
+            'folders' => function ($q) {
+                $q->whereNull('parent_id')
+                    ->with('children')
+                    ->orderBy('sort_order');
+            }
+        ])->where('is_active', true)->get();
 
         return response()->json($sectors);
     }

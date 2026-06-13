@@ -24,9 +24,17 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from typing import List, Optional
 
+def get_runtime_dir() -> Path:
+    if getattr(sys, 'frozen', False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parent
+
+
+APP_DIR = get_runtime_dir()
+
 # ────────────── CONFIG ──────────────
 config = configparser.ConfigParser()
-config_path = Path(__file__).parent / 'config.ini'
+config_path = APP_DIR / 'config.ini'
 
 if not config_path.exists():
     print('❌ config.ini not found! Copy config.ini.example to config.ini and edit it.')
@@ -42,6 +50,10 @@ BRIDGE_ENABLED = config.getboolean('main', 'bridge_enabled', fallback=True)
 BRIDGE_PORT = config.getint('main', 'bridge_port', fallback=9999)
 PREFERRED_SCANNER = config.get('main', 'preferred_scanner', fallback='')
 SCAN_SOURCE = config.get('main', 'scan_source', fallback='feeder')
+SCAN_COLOR = config.get('main', 'scan_color', fallback='gray')
+SCAN_DPI = config.getint('main', 'scan_dpi', fallback=150)
+SCAN_DUPLEX = config.getboolean('main', 'scan_duplex', fallback=False)
+SCAN_MAX_PAGES = config.getint('main', 'scan_max_pages', fallback=100)
 ALLOWED_EXTS = {'.pdf', '.jpg', '.jpeg', '.png', '.tif', '.tiff', '.bmp'}
 IMAGE_EXTS = {'.jpg', '.jpeg', '.png', '.tif', '.tiff', '.bmp'}
 
@@ -51,7 +63,7 @@ BATCH_WINDOW_SECONDS = config.getint('main', 'batch_window_seconds', fallback=8)
 BATCH_MIN_FILES = config.getint('main', 'batch_min_files', fallback=2)
 
 # ────────────── LOGGING ──────────────
-log_file = Path(__file__).parent / 'watcher.log'
+log_file = APP_DIR / 'watcher.log'
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(message)s',
@@ -347,7 +359,17 @@ def main():
             else:
                 log.warning('⚠️ No scanners found! Check Windows Settings.')
 
-            run_bridge(API_TOKEN, folder, port=BRIDGE_PORT, preferred_scanner=PREFERRED_SCANNER, default_source=SCAN_SOURCE)
+            run_bridge(
+                API_TOKEN,
+                folder,
+                port=BRIDGE_PORT,
+                preferred_scanner=PREFERRED_SCANNER,
+                default_source=SCAN_SOURCE,
+                default_color=SCAN_COLOR,
+                default_dpi=SCAN_DPI,
+                default_duplex=SCAN_DUPLEX,
+                default_max_pages=SCAN_MAX_PAGES,
+            )
         except Exception as e:
             log.warning(f'⚠️  Could not start scan bridge: {e}')
 

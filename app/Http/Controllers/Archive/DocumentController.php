@@ -105,9 +105,18 @@ class DocumentController extends Controller
             'issuing_entity' => 'nullable|string|max:255',
             'issue_date' => 'nullable|date',
             'expiry_date' => 'nullable|date',
+            'no_expiry_date' => 'nullable|boolean',
             'notes' => 'nullable|string',
             'is_confidential' => 'nullable|boolean',
         ]);
+
+        $validated['no_expiry_date'] = (bool) ($validated['no_expiry_date'] ?? false);
+        if (!empty($validated['expiry_date'])) {
+            $validated['no_expiry_date'] = false;
+        }
+        if ($validated['no_expiry_date']) {
+            $validated['expiry_date'] = null;
+        }
 
         // Enforce sector & folder access
         $user = auth()->user();
@@ -146,6 +155,7 @@ class DocumentController extends Controller
                 'issuing_entity' => $validated['issuing_entity'] ?? null,
                 'issue_date' => $validated['issue_date'] ?? null,
                 'expiry_date' => $validated['expiry_date'] ?? null,
+                'no_expiry_date' => $validated['no_expiry_date'],
                 'qr_code' => $qrCode,
                 'barcode' => strtoupper(Str::random(12)),
                 'notes' => $validated['notes'] ?? null,
@@ -201,10 +211,19 @@ class DocumentController extends Controller
             'issuing_entity' => 'nullable|string|max:255',
             'issue_date' => 'nullable|date',
             'expiry_date' => 'nullable|date',
+            'no_expiry_date' => 'nullable|boolean',
             'notes' => 'nullable|string',
             'is_confidential' => 'boolean',
             'status' => 'in:active,expired,archived,pending_review',
         ]);
+
+        $validated['no_expiry_date'] = (bool) ($validated['no_expiry_date'] ?? false);
+        if (!empty($validated['expiry_date'])) {
+            $validated['no_expiry_date'] = false;
+        }
+        if ($validated['no_expiry_date']) {
+            $validated['expiry_date'] = null;
+        }
 
         $old = $document->toArray();
         $document->update($validated);

@@ -77,6 +77,7 @@ export default function CreateDocument({ sectors, folders, documentTypes }) {
         issuing_entity: '',
         issue_date: '',
         expiry_date: '',
+        no_expiry_date: false,
         notes: '',
         is_confidential: false,
     });
@@ -327,9 +328,37 @@ export default function CreateDocument({ sectors, folders, documentTypes }) {
                                 <input
                                     type="date"
                                     value={data.expiry_date}
-                                    onChange={e => setData('expiry_date', e.target.value)}
-                                    className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                    onChange={e => {
+                                        const value = e.target.value;
+                                        setData('expiry_date', value);
+                                        if (value) {
+                                            setData('no_expiry_date', false);
+                                        }
+                                    }}
+                                    disabled={data.no_expiry_date}
+                                    className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:bg-gray-100 disabled:text-gray-400"
                                 />
+                                {errors.expiry_date && <p className="text-red-500 text-xs mt-1">{errors.expiry_date}</p>}
+                            </div>
+
+                            <div className="flex items-center gap-3 py-2">
+                                <input
+                                    type="checkbox"
+                                    id="no_expiry_date"
+                                    checked={data.no_expiry_date}
+                                    disabled={Boolean(data.expiry_date)}
+                                    onChange={e => {
+                                        const checked = e.target.checked;
+                                        setData('no_expiry_date', checked);
+                                        if (checked) {
+                                            setData('expiry_date', '');
+                                        }
+                                    }}
+                                    className="w-4 h-4 accent-amber-500 disabled:opacity-50"
+                                />
+                                <label htmlFor="no_expiry_date" className="text-sm font-medium text-gray-700">
+                                    لا يوجد تاريخ انتهاء
+                                </label>
                             </div>
 
                             <div className="flex items-center gap-3 py-2">

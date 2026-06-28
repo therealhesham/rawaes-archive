@@ -14,6 +14,14 @@ from typing import Optional
 
 log = logging.getLogger('bridge')
 
+WIA_IPA_ITEM_CATEGORY = 4125
+WIA_IPS_DOCUMENT_HANDLING_SELECT = 3088
+WIA_DPS_DOCUMENT_HANDLING_SELECT = 3088
+WIA_DPS_PAGES = 3096
+
+WIA_CATEGORY_FEEDER = 'fe131934-f84c-42ad-8da4-6129cddd7288'
+WIA_CATEGORY_FLATBED = 'fb607b1f-43f3-488b-855b-fb703ec342a6'
+
 
 def _set_property(props, prop_id, value):
     """Helper to set a WIA property by ID."""
@@ -25,6 +33,187 @@ def _set_property(props, prop_id, value):
             except Exception as e:
                 log.debug(f'Could not set property {prop_id}={value}: {e}')
     return False
+
+
+def _get_property_value(props, prop_id):
+    for prop in props:
+        if prop.PropertyID == prop_id:
+            return prop.Value
+    return None
+
+
+def _normalize_guid(value) -> str:
+    return str(value).strip().lower().strip('{}')
+
+
+def _item_name(item) -> str:
+    for prop_name in ('Item Name', 'Name'):
+        try:
+            return str(item.Properties(prop_name).Value)
+        except Exception:
+            continue
+    return '<unknown item>'
+
+
+def _get_item_category(item) -> str:
+    return _normalize_guid(_get_property_value(item.Properties, WIA_IPA_ITEM_CATEGORY))
+
+
+def _iter_items(items):
+    for index in range(1, items.Count + 1):
+        yield items(index)
+
+
+def _select_source_item(device, source: str):
+    candidates = list(_iter_items(device.Items))
+    if not candidates:
+        return None
+
+    if len(candidates) == 1:
+        item = candidates[0]
+        log.info(f'🧩 Single WIA item detected: {_item_name(item)}')
+        return item
+
+    for index, item in enumerate(candidates, start=1):
+        log.info(f'🧩 Item[{index}] name={_item_name(item)} category={_get_item_category(item) or "unknown"}')
+
+    if source == 'flatbed':
+        preferred_categories = {WIA_CATEGORY_FLATBED}
+        name_hints = ('flatbed', 'glass')
+    elif source == 'feeder':
+        preferred_categories = {WIA_CATEGORY_FEEDER}
+        name_hints = ('feeder', 'adf')
+    else:
+        preferred_categories = set()
+        name_hints = ()
+
+    if preferred_categories:
+        for item in candidates:
+            if _get_item_category(item) in preferred_categories:
+                log.info(f'🎯 Selected WIA item by category: {_item_name(item)}')
+                return item
+
+        for item in candidates:
+            lower_name = _item_name(item).lower()
+            if any(hint in lower_name for hint in name_hints):
+                log.info(f'🎯 Selected WIA item by name: {_item_name(item)}')
+                return item
+
+    log.info(f'🎯 Falling back to first WIA item: {_item_name(candidates[0])}')
+    return candidates[0]
+
+
+def _set_source_mode(device, item, source: str, duplex: bool) -> bool:
+    source_value = None
+    if source == 'flatbed':
+        source_value = 2
+    elif source == 'feeder':
+        source_value = 1 | 4 if duplex else 1
+
+    if source_value is None:
+        log.info(f'📥 Source: {source} | duplex={duplex} (device default)')
+        return True
+
+    item_ok = _set_property(item.Properties, WIA_IPS_DOCUMENT_HANDLING_SELECT, source_value)
+    device_ok = _set_property(device.Properties, WIA_DPS_DOCUMENT_HANDLING_SELECT, source_value)
+
+    if item_ok or device_ok:
+        where = []
+        if item_ok:
+            where.append('item')
+        if device_ok:
+            where.append('device')
+        log.info(f'📥 Source: {source} | duplex={duplex} | set_on={"+".join(where)}')
+        return True
+
+    log.warning(f'⚠️ Could not force source {source}')
+    return False
+
+
+def _is_wia_no_documents_error(error: Exception) -> bool:
+    message = str(error).lower()
+    indicators = [
+        'paper',
+        'empty',
+        'ready',
+        'no documents',
+        '80210003',
+        '80210064',
+        'feeder',
+        '80070057',
+        'parameter is incorrect',
+    ]
+    return any(indicator in message for indicator in indicators)
+
+
+def _apply_scan_properties(item, color: str, dpi: int) -> None:
+    for prop_id, value in {
+        6146: 1 if color == 'gray' else 2 if color == 'bw' else 0,
+        6147: dpi,
+        6148: dpi,
+    }.items():
+        _set_property(item.Properties, prop_id, value)
+
+
+def _scan_batch_from_connected_item(device, item, output_dir: Path, color: str, dpi: int, max_pages: int) -> tuple[list, Optional[Exception]]:
+    paths = []
+    WIA_FORMAT_JPEG = '{B96B3CAE-0728-11D3-9D7B-0000F81EF32E}'
+    WIA_FORMAT_TIFF = '{B96B3CB1-0728-11D3-9D7B-0000F81EF32E}'
+
+    _apply_scan_properties(item, color, dpi)
+    start_time = time.time()
+
+    _set_property(device.Properties, WIA_DPS_PAGES, 0)
+
+    try:
+        log.info('🔄 Trying multi-page TIFF mode (all pages at once)...')
+        tiff_path = output_dir / f'scan-{int(time.time() * 1000)}.tif'
+        image = item.Transfer(WIA_FORMAT_TIFF)
+        image.SaveFile(str(tiff_path))
+        log.info(f'   TIFF saved ({tiff_path.stat().st_size // 1024} KB)')
+
+        try:
+            from PIL import Image as PILImage
+            with PILImage.open(tiff_path) as img:
+                n_frames = getattr(img, 'n_frames', 1)
+                log.info(f'   Extracted {n_frames} pages from TIFF')
+                for frame_idx in range(n_frames):
+                    img.seek(frame_idx)
+                    page_path = output_dir / f'scan-{int(time.time() * 1000)}-{frame_idx + 1}.jpg'
+                    img.convert('RGB').save(str(page_path), 'JPEG', quality=85)
+                    paths.append(page_path)
+                    log.info(f'✅ Page {frame_idx + 1} extracted')
+            tiff_path.unlink(missing_ok=True)
+            log.info(f'📤 Done — {len(paths)} pages in {time.time() - start_time:.1f}s')
+            return paths, None
+        except ImportError as error:
+            log.error('Pillow not installed: pip install pillow')
+            return paths, error
+    except Exception as error:
+        log.warning(f'⚠️ Multi-page TIFF failed: {error}')
+
+    log.info('🔄 Falling back to single-page loop...')
+    _set_property(device.Properties, WIA_DPS_PAGES, 1)
+
+    page_num = 0
+    last_error = None
+    while page_num < max_pages:
+        page_num += 1
+        try:
+            image = item.Transfer(WIA_FORMAT_JPEG)
+            fp = output_dir / f'scan-{int(time.time() * 1000)}-{page_num}.jpg'
+            image.SaveFile(str(fp))
+            paths.append(fp)
+            log.info(f'✅ Page {page_num}')
+        except Exception as error:
+            last_error = error
+            if _is_wia_no_documents_error(error):
+                log.info(f'📤 ADF finished — {page_num - 1} pages')
+            else:
+                log.error(f'❌ Page {page_num} error: {error}')
+            break
+
+    return paths, last_error
 
 
 def scan_via_wia_multi(output_dir: Path, color: str = 'color', dpi: int = 200,
@@ -91,34 +280,22 @@ def scan_via_wia_multi(output_dir: Path, color: str = 'color', dpi: int = 200,
                 log.warning(f'⚠️ No match for "{preferred_scanner}". Using first device.')
             device_info = devices(1)
 
-        scanner_name = device_info.Properties('Name').Value
-        log.info(f'🖨️ Using scanner: {scanner_name}')
-        device = device_info.Connect()
-
-        WIA_DPS_DOCUMENT_HANDLING_SELECT = 3088
-        WIA_DPS_PAGES = 3096
         WIA_FORMAT_JPEG = '{B96B3CAE-0728-11D3-9D7B-0000F81EF32E}'
-
-        source_value = None
-        if source == 'flatbed':
-            source_value = 2
-        elif source == 'feeder' and duplex:
-            source_value = 1 | 4
-
-        if source_value is not None:
-            if _set_property(device.Properties, WIA_DPS_DOCUMENT_HANDLING_SELECT, source_value):
-                log.info(f'📥 Source: {source} | duplex={duplex}')
-        else:
-            log.info(f'📥 Source: {source} | duplex={duplex} (device default)')
 
         output_dir.mkdir(parents=True, exist_ok=True)
 
+        scanner_name = device_info.Properties('Name').Value
+        log.info(f'🖨️ Using scanner: {scanner_name}')
+
         # For flatbed: only one page
         if source == 'flatbed':
-            item = device.Items(1)
-            for prop_id, value in {6146: 1 if color == 'gray' else 2 if color == 'bw' else 0,
-                                    6147: dpi, 6148: dpi}.items():
-                _set_property(item.Properties, prop_id, value)
+            device = device_info.Connect()
+            item = _select_source_item(device, 'flatbed')
+            if item is None:
+                log.error('❌ No WIA item available for flatbed scan')
+                return paths
+            _set_source_mode(device, item, 'flatbed', duplex)
+            _apply_scan_properties(item, color, dpi)
             try:
                 image = item.Transfer(WIA_FORMAT_JPEG)
                 fp = output_dir / f'scan-{int(time.time() * 1000)}-1.jpg'
@@ -129,70 +306,40 @@ def scan_via_wia_multi(output_dir: Path, color: str = 'color', dpi: int = 200,
                 log.error(f'❌ Flatbed scan error: {e}')
             return paths
 
-        # For feeder: try multiple approaches
-        item = device.Items(1)
-        for prop_id, value in {6146: 1 if color == 'gray' else 2 if color == 'bw' else 0,
-                                6147: dpi, 6148: dpi}.items():
-            _set_property(item.Properties, prop_id, value)
+        source_attempts = []
+        if source == 'feeder':
+            source_attempts.append(('feeder', 1 | 4 if duplex else 1))
+            source_attempts.append(('feeder', None))
+        else:
+            source_attempts.append((source, None))
 
-        start_time = time.time()
-
-        # ─── Approach 1: Multi-page TIFF (standard WIA pattern for ADF) ───
-        # Set PAGES = 0 (scan ALL pages from feeder)
-        _set_property(device.Properties, WIA_DPS_PAGES, 0)
-        WIA_FORMAT_TIFF = '{B96B3CB1-0728-11D3-9D7B-0000F81EF32E}'
-
-        try:
-            log.info('🔄 Trying multi-page TIFF mode (all pages at once)...')
-            tiff_path = output_dir / f'scan-{int(time.time() * 1000)}.tif'
-            image = item.Transfer(WIA_FORMAT_TIFF)
-            image.SaveFile(str(tiff_path))
-            log.info(f'   TIFF saved ({tiff_path.stat().st_size // 1024} KB)')
-
-            # Split TIFF into individual JPEGs using Pillow
-            try:
-                from PIL import Image as PILImage
-                with PILImage.open(tiff_path) as img:
-                    n_frames = getattr(img, 'n_frames', 1)
-                    log.info(f'   Extracted {n_frames} pages from TIFF')
-                    for frame_idx in range(n_frames):
-                        img.seek(frame_idx)
-                        page_path = output_dir / f'scan-{int(time.time() * 1000)}-{frame_idx + 1}.jpg'
-                        img.convert('RGB').save(str(page_path), 'JPEG', quality=85)
-                        paths.append(page_path)
-                        log.info(f'✅ Page {frame_idx + 1} extracted')
-                tiff_path.unlink(missing_ok=True)
-                log.info(f'📤 Done — {len(paths)} pages in {time.time() - start_time:.1f}s')
+        last_error = None
+        for index, (source_label, source_value) in enumerate(source_attempts, start=1):
+            device = device_info.Connect()
+            item = _select_source_item(device, source_label)
+            if item is None:
+                log.error('❌ No WIA item available for feeder scan')
                 return paths
-            except ImportError:
-                log.error('Pillow not installed: pip install pillow')
+
+            if source_value is not None:
+                forced = _set_source_mode(device, item, source_label, duplex)
+                if not forced:
+                    log.warning(f'⚠️ Could not force source {source_label} on attempt {index}')
+            else:
+                log.info(f'📥 Source: {source_label} | duplex={duplex} | attempt={index} (device default)')
+
+            paths, last_error = _scan_batch_from_connected_item(device, item, output_dir, color, dpi, max_pages)
+            if paths:
                 return paths
-        except Exception as e:
-            msg = str(e).lower()
-            log.warning(f'⚠️ Multi-page TIFF failed: {e}')
 
-            # ─── Approach 2: Loop one-by-one (fallback) ───
-            log.info('🔄 Falling back to single-page loop...')
-            _set_property(device.Properties, WIA_DPS_PAGES, 1)
+            if source != 'feeder' or len(source_attempts) == index:
+                break
 
-            page_num = 0
-            while page_num < max_pages:
-                page_num += 1
-                try:
-                    image = item.Transfer(WIA_FORMAT_JPEG)
-                    fp = output_dir / f'scan-{int(time.time() * 1000)}-{page_num}.jpg'
-                    image.SaveFile(str(fp))
-                    paths.append(fp)
-                    log.info(f'✅ Page {page_num}')
-                except Exception as e2:
-                    msg2 = str(e2).lower()
-                    end_indicators = ['paper', 'empty', 'ready', 'no documents', '80210003',
-                                      '80210064', 'feeder', '80070057', 'parameter is incorrect']
-                    if any(c in msg2 for c in end_indicators):
-                        log.info(f'📤 ADF finished — {page_num - 1} pages')
-                    else:
-                        log.error(f'❌ Page {page_num} error: {e2}')
-                    break
+            if last_error and _is_wia_no_documents_error(last_error):
+                log.warning('⚠️ Explicit feeder mode failed, retrying with device default...')
+                continue
+
+            log.warning('⚠️ Feeder scan returned no pages, trying alternate feeder mode...')
 
         return paths
 
@@ -254,42 +401,14 @@ def scan_via_wia(output_dir: Path, color: str = 'color', dpi: int = 200,
 
         log.info(f'🖨️ Using scanner: {device_info.Properties("Name").Value}')
         device = device_info.Connect()
+        item = _select_source_item(device, source)
+        if item is None:
+            log.error('❌ No WIA item available for scan request')
+            return None
 
-        # Set DOCUMENT_HANDLING_SELECT on device level (3088)
-        # 1 = FEEDER, 2 = FLATBED, 4 = DUPLEX
-        WIA_DPS_DOCUMENT_HANDLING_SELECT = 3088
-        WIA_DPS_PAGES = 3096
-
-        source_value = None
-        if source == 'flatbed':
-            source_value = 2
-        elif source == 'feeder' and duplex:
-            source_value = 1 | 4
-        elif source == 'auto':
-            source_value = None
-
-        if source_value is not None:
-            ok = _set_property(device.Properties, WIA_DPS_DOCUMENT_HANDLING_SELECT, source_value)
-            if ok:
-                log.info(f'📥 Source set to: {source} | duplex={duplex}')
-                # Set pages = 1 (scan one page from feeder)
-                _set_property(device.Properties, WIA_DPS_PAGES, 1)
-            else:
-                log.warning(f'⚠️ Could not set source to {source} - device may not support it')
-        else:
-            log.info(f'📥 Source set to: {source} | duplex={duplex} (device default)')
-
-        item = device.Items(1)
-
-        # Configure scan properties on item
-        properties_map = {
-            6146: 1 if color == 'gray' else 2 if color == 'bw' else 0,  # CurrentIntent
-            6147: dpi,   # Horizontal Resolution
-            6148: dpi,   # Vertical Resolution
-        }
-
-        for prop_id, value in properties_map.items():
-            _set_property(item.Properties, prop_id, value)
+        _set_source_mode(device, item, source, duplex)
+        _set_property(device.Properties, WIA_DPS_PAGES, 1)
+        _apply_scan_properties(item, color, dpi)
 
         # Transfer the image
         WIA_FORMAT_JPEG = '{B96B3CAE-0728-11D3-9D7B-0000F81EF32E}'

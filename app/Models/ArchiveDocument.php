@@ -17,7 +17,7 @@ class ArchiveDocument extends Model
         'serial_number',
         'title', 'document_number', 'folder_id', 'document_type_id', 'sector_id',
         'uploaded_by', 'upload_source', 'file_path', 'file_name', 'file_extension', 'file_size',
-        'mime_type', 'issuing_entity', 'issue_date', 'expiry_date', 'physical_location',
+        'mime_type', 'issuing_entity', 'issue_date', 'expiry_date', 'no_expiry_date', 'physical_location',
         'qr_code', 'barcode', 'ocr_content', 'tags', 'notes', 'status', 'is_confidential',
         'is_checked_out', 'checked_out_to', 'checked_out_by', 'checked_out_at', 'checked_out_notes',
     ];
@@ -26,6 +26,7 @@ class ArchiveDocument extends Model
         'tags' => 'array',
         'issue_date' => 'date:Y-m-d',
         'expiry_date' => 'date:Y-m-d',
+        'no_expiry_date' => 'boolean',
         'is_confidential' => 'boolean',
         'is_checked_out' => 'boolean',
         'checked_out_at' => 'datetime',

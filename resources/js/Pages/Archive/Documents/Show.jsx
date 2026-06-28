@@ -433,7 +433,7 @@ export default function ShowDocument({ document }) {
                             <InfoRow icon={FolderOpen} label="المجلد" value={document.folder?.name} />
                             <InfoRow icon={Building2} label="الجهة المصدرة" value={document.issuing_entity} />
                             <InfoRow icon={Calendar} label="تاريخ الإصدار" value={document.issue_date} />
-                            <InfoRow icon={Clock} label="تاريخ الانتهاء" value={document.expiry_date} />
+                            <InfoRow icon={Clock} label="تاريخ الانتهاء" value={document.no_expiry_date ? 'لا يوجد تاريخ انتهاء' : document.expiry_date} />
                             <InfoRow icon={MapPin} label="الموقع الفعلي" value={document.physical_location} />
                         </div>
                     </div>

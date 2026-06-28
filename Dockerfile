@@ -22,6 +22,10 @@ FROM composer:2 AS composer-builder
 
 WORKDIR /app
 
+# Prevent Composer memory limits and allow running as root
+ENV COMPOSER_ALLOW_SUPERUSER=1
+ENV COMPOSER_MEMORY_LIMIT=-1
+
 COPY composer.json composer.lock ./
 RUN composer install \
     --no-dev \

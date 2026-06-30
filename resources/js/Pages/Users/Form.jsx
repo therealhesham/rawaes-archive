@@ -11,6 +11,7 @@ const roleLabels = {
 
 export default function UserForm({ user, sectors, folders = [], roles }) {
     const isEdit = Boolean(user);
+    const defaultRole = user?.roles?.[0]?.name ?? roles?.[0]?.name ?? '';
 
     const { data, setData, post, put, processing, errors } = useForm({
         name: user?.name ?? '',
@@ -22,7 +23,7 @@ export default function UserForm({ user, sectors, folders = [], roles }) {
         department: user?.department ?? '',
         job_title: user?.job_title ?? '',
         phone: user?.phone ?? '',
-        role: user?.roles?.[0]?.name ?? 'employee',
+        role: defaultRole,
         is_active: user?.is_active ?? true,
         allowed_sector_ids: user?.allowed_sectors?.map(s => s.id) ?? [],
         allowed_folder_ids: user?.allowed_folders?.map(f => f.id) ?? [],
@@ -71,6 +72,12 @@ export default function UserForm({ user, sectors, folders = [], roles }) {
                 </div>
 
                 <form onSubmit={submit} className="space-y-4">
+                    {Object.keys(errors).length > 0 && (
+                        <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">
+                            يرجى مراجعة الحقول المطلوبة وتصحيح الأخطاء الظاهرة.
+                        </div>
+                    )}
+
                     <div className="bg-white rounded-xl border border-gray-200 p-6">
                         <div className="flex items-center gap-3 mb-4">
                             <div className="p-2.5 bg-amber-50 rounded-lg">
@@ -186,6 +193,7 @@ export default function UserForm({ user, sectors, folders = [], roles }) {
                                         </option>
                                     ))}
                                 </select>
+                                {errors.role && <p className="text-red-500 text-xs mt-1">{errors.role}</p>}
                             </div>
                         </div>
                     </div>
@@ -284,6 +292,7 @@ export default function UserForm({ user, sectors, folders = [], roles }) {
                                     dir="ltr"
                                     className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
                                 />
+                                {errors.password_confirmation && <p className="text-red-500 text-xs mt-1">{errors.password_confirmation}</p>}
                             </div>
                         </div>
 

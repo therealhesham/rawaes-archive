@@ -53,6 +53,7 @@ Route::prefix('archive')->name('archive.')->middleware(['auth'])->group(function
     Route::get('/documents/{document}/download', [DocumentController::class, 'download'])->name('documents.download');
     Route::get('/documents/{document}/preview', [DocumentController::class, 'preview'])->name('documents.preview');
     Route::post('/documents/{document}/move', [DocumentController::class, 'move'])->name('documents.move');
+    Route::post('/documents/{document}/copy', [DocumentController::class, 'copy'])->name('documents.copy');
     Route::post('/documents/{document}/ocr', [DocumentController::class, 'runOcr'])->name('documents.ocr');
     Route::post('/documents/{document}/email', [DocumentController::class, 'email'])->name('documents.email');
     Route::post('/documents/{document}/custody/checkout', [DocumentController::class, 'custodyCheckout'])->name('documents.custody.checkout');
@@ -73,8 +74,11 @@ Route::prefix('archive')->name('archive.')->middleware(['auth'])->group(function
     Route::get('/folders', [FolderController::class, 'index'])->name('folders.index');
     Route::post('/folders', [FolderController::class, 'store'])->name('folders.store');
     Route::put('/folders/{folder}', [FolderController::class, 'update'])->name('folders.update');
+    Route::post('/folders/{folder}/move', [FolderController::class, 'move'])->name('folders.move');
+    Route::post('/folders/{folder}/copy', [FolderController::class, 'copy'])->name('folders.copy');
     Route::delete('/folders/{folder}', [FolderController::class, 'destroy'])->name('folders.destroy');
     Route::get('/api/folders/tree', [FolderController::class, 'tree'])->name('folders.tree');
+    Route::get('/api/folders/{folder}/documents', [FolderController::class, 'documents'])->name('folders.documents');
 
     // Inventory (Physical archive QR verification)
     Route::get('/inventory', [InventoryController::class, 'index'])->name('inventory.index');

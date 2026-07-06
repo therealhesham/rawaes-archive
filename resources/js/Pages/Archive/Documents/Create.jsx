@@ -68,11 +68,14 @@ export default function CreateDocument({ sectors, folders, documentTypes }) {
     const SCAN_TOKEN = usePage().props.scanBridge?.token || '';
 
 
+    // دعم التحديد المسبق للمجلد من صفحة المستكشف (?sector_id=&folder_id=)
+    const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+
     const [processing, setProcessing] = useState(false);
     const [errors, setErrors] = useState({});
     const [data, setDataState] = useState({
-        sector_id: '',
-        folder_id: '',
+        sector_id: urlParams?.get('sector_id') ?? '',
+        folder_id: urlParams?.get('folder_id') ?? '',
         document_type_id: '',
         issuing_entity: '',
         issue_date: '',

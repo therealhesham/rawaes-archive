@@ -288,6 +288,69 @@ class DocumentController extends Controller
         return back()->with('success', "تم نقل المستند إلى: {$folder->path}");
     }
 
+    /**
+     * نسخ المستند إلى مجلد (لصق بعد نسخ): يكرر الملف والسجل بمعرفات جديدة.
+     */
+    public function copy(Request $request, ArchiveDocument $document)
+    {
+        $this->authorize('view', $document);
+        abort_unless(auth()->user()->can('documents.create'), 403);
+
+        $validated = $request->validate([
+            'folder_id' => 'required|exists:document_folders,id',
+        ]);
+
+        $folder = DocumentFolder::findOrFail($validated['folder_id']);
+        if (!$folder->is_active) {
+            throw ValidationException::withMessages(['folder_id' => 'المجلد الهدف غير نشط']);
+        }
+
+        $user = auth()->user();
+        $allowedSectorIds = $user->accessibleSectorIds();
+        $allowedFolderIds = $user->accessibleFolderIds();
+        if (!empty($allowedSectorIds) && !in_array((int) $folder->sector_id, array_map('intval', $allowedSectorIds), true)) {
+            abort(403, 'لا تملك صلاحية النسخ إلى هذا القطاع');
+        }
+        if (!empty($allowedFolderIds) && !in_array((int) $folder->id, array_map('intval', $allowedFolderIds), true)) {
+            abort(403, 'لا تملك صلاحية النسخ إلى هذا المجلد');
+        }
+
+        if (!Storage::disk('local')->exists($document->file_path)) {
+            throw ValidationException::withMessages(['folder_id' => 'ملف المستند الأصلي غير موجود']);
+        }
+
+        // نسخة فعلية جديدة من الملف على القرص
+        $newPath = 'archive/' . now()->format('Y/m') . '/' . Str::random(32) . '.' . $document->file_extension;
+        Storage::disk('local')->copy($document->file_path, $newPath);
+
+        $copy = $document->replicate([
+            'serial_number', 'qr_code', 'barcode',
+            'is_checked_out', 'checked_out_to', 'checked_out_by', 'checked_out_at', 'checked_out_notes',
+        ]);
+        $copy->folder_id = $folder->id;
+        $copy->sector_id = $folder->sector_id ?? $document->sector_id;
+        $copy->file_path = $newPath;
+        $copy->uploaded_by = $user->id;
+        $copy->qr_code = Str::uuid()->toString();
+        $copy->barcode = strtoupper(Str::random(12));
+        $copy->is_checked_out = false;
+        // نفس المجلد: ميّز النسخة بالاسم
+        if ((int) $folder->id === (int) $document->folder_id) {
+            $copy->title = $document->title . ' - نسخة';
+        }
+        $copy->save();
+
+        AuditLog::record(
+            'copy',
+            $copy,
+            [],
+            $copy->toArray(),
+            "نسخ المستند \"{$document->title}\" إلى \"{$folder->path}\""
+        );
+
+        return back()->with('success', "تم نسخ المستند إلى: {$folder->path}");
+    }
+
     public function update(Request $request, ArchiveDocument $document)
     {
         $this->authorize('update', $document);

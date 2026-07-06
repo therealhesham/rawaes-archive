@@ -141,7 +141,7 @@ export default function AuditLogIndex({ logs, filters, users }) {
                         <select
                             value={filters.action ?? ''}
                             onChange={e => applyFilter('action', e.target.value)}
-                            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                            className="border border-gray-200 rounded-lg  py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
                         >
                             <option value="">كل الإجراءات</option>
                             {Object.entries(actionConfig).map(([k, v]) => (
@@ -158,7 +158,7 @@ export default function AuditLogIndex({ logs, filters, users }) {
                                 setUserId(e.target.value);
                                 router.get('/archive/audit-logs', { ...filters, tab, user_id: e.target.value }, { preserveState: true });
                             }}
-                            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                            className="border border-gray-200 rounded-lg  py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
                         >
                             <option value="">كل المستخدمين</option>
                             {users?.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import ArchiveLayout from '@/Layouts/ArchiveLayout';
+import MoveDocumentModal from '@/Components/Archive/MoveDocumentModal';
 import { QRCodeSVG } from 'qrcode.react';
 import {
     FileText, Download, Edit2, Trash2, ArrowLeft, Calendar,
@@ -169,10 +170,11 @@ const statusLabels = {
     pending_review: { label: 'قيد المراجعة', color: 'bg-yellow-100 text-yellow-700' },
 };
 
-export default function ShowDocument({ document }) {
+export default function ShowDocument({ document, folders }) {
     const [runningOcr, setRunningOcr] = useState(false);
     const [ocrAutoRequested, setOcrAutoRequested] = useState(false);
     const [emailOpen, setEmailOpen] = useState(false);
+    const [moveOpen, setMoveOpen] = useState(false);
     const ext = document.file_extension?.toLowerCase();
     const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
     const isPdf = ext === 'pdf';
@@ -301,6 +303,13 @@ export default function ShowDocument({ document }) {
                                     <Mail size={15} />
                                     <span className="hidden sm:inline">إرسال</span>
                                 </button>
+                                <button
+                                    onClick={() => setMoveOpen(true)}
+                                    className="flex items-center gap-1.5 px-3 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg text-sm font-medium transition-colors"
+                                >
+                                    <FolderOpen size={15} />
+                                    <span className="hidden sm:inline">نقل</span>
+                                </button>
                                 <Link
                                     href={`/archive/documents/${document.id}/edit`}
                                     className="flex items-center gap-1.5 px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-medium transition-colors"
@@ -317,6 +326,13 @@ export default function ShowDocument({ document }) {
                             </div>
                         </div>
                     </div>
+
+                    <MoveDocumentModal
+                        document={document}
+                        folders={folders}
+                        open={moveOpen}
+                        onClose={() => setMoveOpen(false)}
+                    />
 
                     {/* File preview */}
                     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -430,7 +446,8 @@ export default function ShowDocument({ document }) {
                         <div className="divide-y divide-gray-50">
                             <InfoRow icon={Archive} label="القطاع" value={document.sector?.name} />
                             <InfoRow icon={FileType} label="نوع المستند" value={document.document_type?.name} />
-                            <InfoRow icon={FolderOpen} label="المجلد" value={document.folder?.name} />
+                            <InfoRow icon={ScanSearch} label="المصدر" value={document.upload_source === 'scanner' ? 'ورقي (سكانر)' : 'إلكتروني'} />
+                            <InfoRow icon={FolderOpen} label="المجلد" value={document.folder_path || document.folder?.name} />
                             <InfoRow icon={Building2} label="الجهة المصدرة" value={document.issuing_entity} />
                             <InfoRow icon={Calendar} label="تاريخ الإصدار" value={document.issue_date} />
                             <InfoRow icon={Clock} label="تاريخ الانتهاء" value={document.no_expiry_date ? 'لا يوجد تاريخ انتهاء' : document.expiry_date} />

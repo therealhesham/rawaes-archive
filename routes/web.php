@@ -52,6 +52,7 @@ Route::prefix('archive')->name('archive.')->middleware(['auth'])->group(function
     Route::delete('/documents/{document}', [DocumentController::class, 'destroy'])->name('documents.destroy');
     Route::get('/documents/{document}/download', [DocumentController::class, 'download'])->name('documents.download');
     Route::get('/documents/{document}/preview', [DocumentController::class, 'preview'])->name('documents.preview');
+    Route::post('/documents/{document}/move', [DocumentController::class, 'move'])->name('documents.move');
     Route::post('/documents/{document}/ocr', [DocumentController::class, 'runOcr'])->name('documents.ocr');
     Route::post('/documents/{document}/email', [DocumentController::class, 'email'])->name('documents.email');
     Route::post('/documents/{document}/custody/checkout', [DocumentController::class, 'custodyCheckout'])->name('documents.custody.checkout');

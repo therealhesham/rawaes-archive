@@ -44,7 +44,7 @@ function FolderSelect({ folders, value, onChange, sectorId, disabled }) {
             value={value}
             onChange={e => onChange(e.target.value)}
             disabled={disabled || !sectorId}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white disabled:bg-gray-50 disabled:text-gray-400"
+            className="w-full border border-gray-200 rounded-lg  py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white disabled:bg-gray-50 disabled:text-gray-400"
             required
         >
             <option value="">
@@ -83,7 +83,7 @@ export default function CreateDocument({ sectors, folders, documentTypes }) {
     });
     const setData = (key, value) => setDataState(prev => ({ ...prev, [key]: value }));
 
-    const handleFiles = useCallback((newFiles) => {
+    const handleFiles = useCallback((newFiles, source = 'web') => {
         const added = Array.from(newFiles).map(f => ({
             id: Math.random().toString(36).slice(2),
             file: f,
@@ -91,6 +91,7 @@ export default function CreateDocument({ sectors, folders, documentTypes }) {
             document_number: '',
             ext: f.name.split('.').pop(),
             size: f.size,
+            source,
         }));
         setFiles(prev => [...prev, ...added]);
     }, []);
@@ -122,6 +123,7 @@ export default function CreateDocument({ sectors, folders, documentTypes }) {
             payload[`files[${i}]`] = f.file;
             payload[`titles[${f.file.name}]`] = f.title;
             payload[`document_numbers[${f.file.name}]`] = f.document_number;
+            payload[`sources[${f.file.name}]`] = f.source || 'web';
         });
 
         router.post('/archive/documents', payload, {
@@ -198,7 +200,7 @@ export default function CreateDocument({ sectors, folders, documentTypes }) {
                     <MultiPageScan
                         open={scanModalOpen}
                         onClose={() => setScanModalOpen(false)}
-                        onComplete={(file) => handleFiles([file])}
+                        onComplete={(file) => handleFiles([file], 'scanner')}
                         scanToken={SCAN_TOKEN}
                     />
 
@@ -239,7 +241,14 @@ export default function CreateDocument({ sectors, folders, documentTypes }) {
                                             />
                                         </div>
                                         <div className="text-right shrink-0">
-                                            <p className="text-xs text-gray-500" dir="ltr">{formatBytes(f.size)}</p>
+                                            <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                                                f.source === 'scanner'
+                                                    ? 'bg-amber-100 text-amber-800'
+                                                    : 'bg-blue-100 text-blue-700'
+                                            }`}>
+                                                {f.source === 'scanner' ? 'ورقي' : 'إلكتروني'}
+                                            </span>
+                                            <p className="text-xs text-gray-500 mt-1" dir="ltr">{formatBytes(f.size)}</p>
                                             <button type="button" onClick={() => removeFile(f.id)} className="mt-1 text-gray-400 hover:text-red-500">
                                                 <X size={14} />
                                             </button>
@@ -265,7 +274,7 @@ export default function CreateDocument({ sectors, folders, documentTypes }) {
                                         setData('folder_id', ''); // reset folder when sector changes
                                     }}
                                     required
-                                    className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                    className="w-full border border-gray-200 rounded-lg  py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
                                 >
                                     <option value="">اختر القطاع</option>
                                     {sectors.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -281,7 +290,7 @@ export default function CreateDocument({ sectors, folders, documentTypes }) {
                                     value={data.document_type_id}
                                     onChange={e => setData('document_type_id', e.target.value)}
                                     required
-                                    className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                    className="w-full border border-gray-200 rounded-lg  py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
                                 >
                                     <option value="">اختر النوع</option>
                                     {documentTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}

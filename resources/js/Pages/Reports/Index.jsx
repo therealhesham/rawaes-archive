@@ -213,7 +213,7 @@ export default function ReportsIndex({ filters, totals, uploadsTrend, bySector, 
                         <select
                             value={sectorId}
                             onChange={(e) => setSectorId(e.target.value)}
-                            className="border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-400"
+                            className="border border-gray-200 rounded-xl  py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-400"
                         >
                             <option value="">كل القطاعات</option>
                             {sectors?.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -224,7 +224,7 @@ export default function ReportsIndex({ filters, totals, uploadsTrend, bySector, 
                         <select
                             value={typeId}
                             onChange={(e) => setTypeId(e.target.value)}
-                            className="border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-400"
+                            className="border border-gray-200 rounded-xl  py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-400"
                         >
                             <option value="">كل الأنواع</option>
                             {documentTypes?.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
@@ -235,7 +235,7 @@ export default function ReportsIndex({ filters, totals, uploadsTrend, bySector, 
                         <select
                             value={uploaderId}
                             onChange={(e) => setUploaderId(e.target.value)}
-                            className="border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-400"
+                            className="border border-gray-200 rounded-xl  py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-400"
                         >
                             <option value="">كل المستخدمين</option>
                             {uploaders?.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
@@ -246,7 +246,7 @@ export default function ReportsIndex({ filters, totals, uploadsTrend, bySector, 
                         <select
                             value={department}
                             onChange={(e) => setDepartment(e.target.value)}
-                            className="border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-400"
+                            className="border border-gray-200 rounded-xl  py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-400"
                         >
                             <option value="">كل الأقسام</option>
                             {departments?.map((d) => <option key={d} value={d}>{d}</option>)}

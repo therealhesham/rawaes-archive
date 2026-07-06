@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import ArchiveLayout from '@/Layouts/ArchiveLayout';
 import SignaturePad from '@/Components/SignaturePad';
+import MoveDocumentModal from '@/Components/Archive/MoveDocumentModal';
 import {
     Search, Filter, Download, Eye, Edit2, Trash2,
-    FileText, AlertTriangle, Clock, CheckCircle,
+    FileText, AlertTriangle, Clock, CheckCircle, FolderOpen,
     ChevronLeft, ChevronRight, MoreVertical, Upload, Handshake, Hand
 } from 'lucide-react';
 
@@ -22,8 +23,9 @@ const statusLabels = {
     pending_review: 'قيد المراجعة',
 };
 
-function DocumentRow({ doc, can }) {
+function DocumentRow({ doc, can, folders }) {
     const [menuOpen, setMenuOpen] = useState(false);
+    const [moveOpen, setMoveOpen] = useState(false);
     const [custodyOpen, setCustodyOpen] = useState(false);
     const [custodyTo, setCustodyTo] = useState('');
     const [custodyNotes, setCustodyNotes] = useState('');
@@ -96,6 +98,12 @@ function DocumentRow({ doc, can }) {
                                 {doc.document_number && (
                                     <p className="text-xs text-gray-500">{doc.document_number}</p>
                                 )}
+                                {doc.folder_path && (
+                                    <p className="flex items-center gap-1 text-xs text-gray-400 mt-0.5">
+                                        <FolderOpen size={12} className="shrink-0" />
+                                        <span>{doc.folder_path}</span>
+                                    </p>
+                                )}
                             </div>
                         </div>
                     </td>
@@ -162,13 +170,22 @@ function DocumentRow({ doc, can }) {
                                 <Download size={16} />
                             </Link>
                             {can['documents.create'] && (
-                                <Link
-                                    href={`/archive/documents/${doc.id}/edit`}
-                                    className="p-1.5 rounded hover:bg-amber-50 text-gray-500 hover:text-amber-600 transition-colors"
-                                    title="تعديل"
-                                >
-                                    <Edit2 size={16} />
-                                </Link>
+                                <>
+                                    <button
+                                        onClick={() => setMoveOpen(true)}
+                                        className="p-1.5 rounded hover:bg-indigo-50 text-gray-500 hover:text-indigo-600 transition-colors"
+                                        title="نقل إلى مجلد آخر"
+                                    >
+                                        <FolderOpen size={16} />
+                                    </button>
+                                    <Link
+                                        href={`/archive/documents/${doc.id}/edit`}
+                                        className="p-1.5 rounded hover:bg-amber-50 text-gray-500 hover:text-amber-600 transition-colors"
+                                        title="تعديل"
+                                    >
+                                        <Edit2 size={16} />
+                                    </Link>
+                                </>
                             )}
                             {can['documents.delete'] && (
                                 <button
@@ -184,6 +201,13 @@ function DocumentRow({ doc, can }) {
                                 </button>
                             )}
                         </div>
+
+                        <MoveDocumentModal
+                            document={doc}
+                            folders={folders}
+                            open={moveOpen}
+                            onClose={() => setMoveOpen(false)}
+                        />
 
                         {custodyOpen && (
                             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setCustodyOpen(false)}>
@@ -250,7 +274,7 @@ function DocumentRow({ doc, can }) {
     );
 }
 
-export default function DocumentsIndex({ documents, sectors, documentTypes, filters }) {
+export default function DocumentsIndex({ documents, sectors, folders, documentTypes, filters }) {
     const { auth } = usePage().props;
     const can = auth?.can ?? {};
     const [search, setSearch] = useState(filters.search ?? '');
@@ -330,7 +354,7 @@ export default function DocumentsIndex({ documents, sectors, documentTypes, filt
                         <select
                             value={filters.sector_id ?? ''}
                             onChange={e => applyFilter('sector_id', e.target.value)}
-                            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                            className="border border-gray-200 rounded-lg py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
                         >
                             <option value="">كل القطاعات</option>
                             {sectors.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -338,7 +362,7 @@ export default function DocumentsIndex({ documents, sectors, documentTypes, filt
                         <select
                             value={filters.type_id ?? ''}
                             onChange={e => applyFilter('type_id', e.target.value)}
-                            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                            className="border border-gray-200 rounded-lg  py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
                         >
                             <option value="">كل الأنواع</option>
                             {documentTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
@@ -346,7 +370,7 @@ export default function DocumentsIndex({ documents, sectors, documentTypes, filt
                         <select
                             value={filters.status ?? ''}
                             onChange={e => applyFilter('status', e.target.value)}
-                            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                            className="border border-gray-200 rounded-lg  py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
                         >
                             <option value="">كل الحالات</option>
                             <option value="active">نشط</option>
@@ -400,7 +424,7 @@ export default function DocumentsIndex({ documents, sectors, documentTypes, filt
 	                        </thead>
 		                        <tbody className="divide-y divide-gray-50">
 		                            {documents.data?.length > 0 ? (
-		                                documents.data.map(doc => <DocumentRow key={doc.id} doc={doc} can={can} />)
+		                                documents.data.map(doc => <DocumentRow key={doc.id} doc={doc} can={can} folders={folders} />)
 		                            ) : (
 		                                <tr>
 	                                    <td colSpan={9} className="px-4 py-16 text-center">

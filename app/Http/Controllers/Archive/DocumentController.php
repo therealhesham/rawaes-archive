@@ -55,6 +55,19 @@ class DocumentController extends Controller
             ->paginate(20)
             ->withQueryString();
 
+        // المسار الكامل للمجلد (مجلد / مجلد فرعي / ...) لكل مستند
+        $allFolders = DocumentFolder::withTrashed()->get(['id', 'parent_id', 'name'])->keyBy('id');
+        foreach ($query->items() as $doc) {
+            $parts = [];
+            $folderId = $doc->folder_id;
+            $guard = 0;
+            while ($folderId && ($f = $allFolders->get($folderId)) && $guard++ < 20) {
+                array_unshift($parts, $f->name);
+                $folderId = $f->parent_id;
+            }
+            $doc->setAttribute('folder_path', implode(' / ', $parts));
+        }
+
         return Inertia::render('Archive/Documents/Index', [
             'documents' => $query,
             'sectors' => Sector::where('is_active', true)->get(),
@@ -108,6 +121,7 @@ class DocumentController extends Controller
             'no_expiry_date' => 'nullable|boolean',
             'notes' => 'nullable|string',
             'is_confidential' => 'nullable|boolean',
+            'sources' => 'nullable|array',
         ]);
 
         $validated['no_expiry_date'] = (bool) ($validated['no_expiry_date'] ?? false);
@@ -132,21 +146,32 @@ class DocumentController extends Controller
 
         $documents = [];
 
+        // File names contain dots, so dot-notation input() lookups can't reach these keys
+        $titles = (array) $request->input('titles', []);
+        $documentNumbers = (array) $request->input('document_numbers', []);
+        $sources = (array) $request->input('sources', []);
+
         foreach ($request->file('files') as $file) {
             $path = $file->store('archive/' . now()->format('Y/m'), 'local');
             $qrCode = Str::uuid()->toString();
+            $originalName = $file->getClientOriginalName();
 
-            $title = $request->input('titles.' . $file->getClientOriginalName())
-                ?? pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+            $title = ($titles[$originalName] ?? null)
+                ?: pathinfo($originalName, PATHINFO_FILENAME);
+
+            // ورقي إذا جاء الملف من السكانر، وإلا إلكتروني
+            $uploadSource = ($sources[$originalName] ?? null) === 'scanner'
+                ? 'scanner'
+                : 'web';
 
             $doc = ArchiveDocument::create([
                 'title' => $title,
-                'document_number' => $request->input('document_numbers.' . $file->getClientOriginalName()),
+                'document_number' => $documentNumbers[$originalName] ?? null,
                 'folder_id' => $validated['folder_id'],
                 'document_type_id' => $validated['document_type_id'],
                 'sector_id' => $validated['sector_id'],
                 'uploaded_by' => auth()->id(),
-                'upload_source' => 'web',
+                'upload_source' => $uploadSource,
                 'file_path' => $path,
                 'file_name' => $file->getClientOriginalName(),
                 'file_extension' => $file->getClientOriginalExtension(),
@@ -178,10 +203,25 @@ class DocumentController extends Controller
     {
         $this->authorize('view', $document);
         $document->load(['folder.parent', 'documentType', 'sector', 'uploader', 'metadata']);
+        $document->setAttribute('folder_path', $document->folder?->path);
         AuditLog::record('view', $document, [], [], "استعراض المستند: {$document->title}");
+
+        // المجلدات المتاحة للنقل (بنفس تقييد صلاحيات الرفع)
+        $user = auth()->user();
+        $allowedSectorIds = $user->accessibleSectorIds();
+        $allowedFolderIds = $user->accessibleFolderIds();
+
+        $foldersQuery = DocumentFolder::where('is_active', true);
+        if (!empty($allowedSectorIds)) {
+            $foldersQuery->whereIn('sector_id', $allowedSectorIds);
+        }
+        if (!empty($allowedFolderIds)) {
+            $foldersQuery->whereIn('id', $allowedFolderIds);
+        }
 
         return Inertia::render('Archive/Documents/Show', [
             'document' => $document,
+            'folders' => $foldersQuery->get(['id', 'sector_id', 'parent_id', 'name']),
         ]);
     }
 
@@ -197,6 +237,55 @@ class DocumentController extends Controller
                 ->get(['id', 'sector_id', 'parent_id', 'name', 'name_en']),
             'documentTypes' => DocumentType::where('is_active', true)->get(),
         ]);
+    }
+
+    /**
+     * نقل المستند إلى مجلد آخر (مع تحديث القطاع تلقائياً حسب قطاع المجلد الهدف).
+     */
+    public function move(Request $request, ArchiveDocument $document)
+    {
+        $this->authorize('update', $document);
+
+        $validated = $request->validate([
+            'folder_id' => 'required|exists:document_folders,id',
+        ]);
+
+        $folder = DocumentFolder::findOrFail($validated['folder_id']);
+        if (!$folder->is_active) {
+            throw ValidationException::withMessages(['folder_id' => 'المجلد الهدف غير نشط']);
+        }
+
+        $user = auth()->user();
+        $allowedSectorIds = $user->accessibleSectorIds();
+        $allowedFolderIds = $user->accessibleFolderIds();
+        if (!empty($allowedSectorIds) && !in_array((int) $folder->sector_id, array_map('intval', $allowedSectorIds), true)) {
+            abort(403, 'لا تملك صلاحية النقل إلى هذا القطاع');
+        }
+        if (!empty($allowedFolderIds) && !in_array((int) $folder->id, array_map('intval', $allowedFolderIds), true)) {
+            abort(403, 'لا تملك صلاحية النقل إلى هذا المجلد');
+        }
+
+        if ((int) $folder->id === (int) $document->folder_id) {
+            return back()->with('success', 'المستند موجود في هذا المجلد بالفعل');
+        }
+
+        $old = $document->only(['folder_id', 'sector_id']);
+        $oldPath = $document->folder?->path ?? '—';
+
+        $document->update([
+            'folder_id' => $folder->id,
+            'sector_id' => $folder->sector_id ?? $document->sector_id,
+        ]);
+
+        AuditLog::record(
+            'move',
+            $document,
+            $old,
+            $document->only(['folder_id', 'sector_id']),
+            "نقل المستند \"{$document->title}\" من \"{$oldPath}\" إلى \"{$folder->path}\""
+        );
+
+        return back()->with('success', "تم نقل المستند إلى: {$folder->path}");
     }
 
     public function update(Request $request, ArchiveDocument $document)

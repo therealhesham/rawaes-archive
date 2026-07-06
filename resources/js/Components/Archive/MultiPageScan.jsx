@@ -233,7 +233,7 @@ export default function MultiPageScan({ open, onClose, onComplete, scanToken }) 
                                 <div>
                                     <label className="block text-xs text-gray-500 mb-1">الجارور / المصدر</label>
                                     <select value={source} onChange={e => setSource(e.target.value)}
-                                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                                        className="w-full border border-gray-200 rounded-lg  py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
                                         <option value="feeder">ADF / الدرج</option>
                                         <option value="flatbed">الزجاج</option>
                                         <option value="auto">تلقائي</option>
@@ -242,7 +242,7 @@ export default function MultiPageScan({ open, onClose, onComplete, scanToken }) 
                                 <div>
                                     <label className="block text-xs text-gray-500 mb-1">اللون</label>
                                     <select value={color} onChange={e => setColor(e.target.value)}
-                                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                                        className="w-full border border-gray-200 rounded-lg  py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
                                         <option value="gray">أبيض وأسود (أسرع)</option>
                                         <option value="color">ملوّن</option>
                                         <option value="bw">ثنائي (نص فقط)</option>
@@ -251,7 +251,7 @@ export default function MultiPageScan({ open, onClose, onComplete, scanToken }) 
                                 <div>
                                     <label className="block text-xs text-gray-500 mb-1">الجودة (DPI)</label>
                                     <select value={dpi} onChange={e => setDpi(parseInt(e.target.value))}
-                                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                                        className="w-full border border-gray-200 rounded-lg  py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
                                         <option value="100">منخفضة (100) - سريع جداً</option>
                                         <option value="150">متوسطة (150) - موصى به</option>
                                         <option value="200">عالية (200)</option>
@@ -261,7 +261,7 @@ export default function MultiPageScan({ open, onClose, onComplete, scanToken }) 
                                 <div>
                                     <label className="block text-xs text-gray-500 mb-1">أقصى عدد صفحات</label>
                                     <select value={maxPages} onChange={e => setMaxPages(parseInt(e.target.value))}
-                                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                                        className="w-full border border-gray-200 rounded-lg  py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
                                         <option value="25">25</option>
                                         <option value="50">50</option>
                                         <option value="100">100</option>

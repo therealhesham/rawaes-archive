@@ -26,7 +26,7 @@ function FolderSelect({ folders, value, onChange, sectorId }) {
             value={value}
             onChange={e => onChange(e.target.value)}
             required
-            className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
+            className="w-full border border-gray-200 rounded-lg  py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
         >
             <option value="">اختر المجلد</option>
             {renderTree()}
@@ -120,7 +120,7 @@ export default function EditDocument({ document, sectors, folders, documentTypes
                                 <select
                                     value={data.status}
                                     onChange={e => setData('status', e.target.value)}
-                                    className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                    className="w-full border border-gray-200 rounded-lg  py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
                                 >
                                     <option value="active">نشط</option>
                                     <option value="expired">منتهي</option>
@@ -140,7 +140,7 @@ export default function EditDocument({ document, sectors, folders, documentTypes
                                         setData('folder_id', '');
                                     }}
                                     required
-                                    className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                    className="w-full border border-gray-200 rounded-lg  py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
                                 >
                                     {sectors.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                                 </select>
@@ -154,7 +154,7 @@ export default function EditDocument({ document, sectors, folders, documentTypes
                                     value={data.document_type_id}
                                     onChange={e => setData('document_type_id', e.target.value)}
                                     required
-                                    className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                    className="w-full border border-gray-200 rounded-lg  py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
                                 >
                                     {documentTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                                 </select>

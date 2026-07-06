@@ -169,7 +169,7 @@ export default function UserForm({ user, sectors, folders = [], roles }) {
                                 <select
                                     value={data.sector_id}
                                     onChange={e => setData('sector_id', e.target.value)}
-                                    className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                    className="w-full border border-gray-200 rounded-lg  py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
                                 >
                                     <option value="">بدون قطاع</option>
                                     {sectors.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -185,7 +185,7 @@ export default function UserForm({ user, sectors, folders = [], roles }) {
                                     value={data.role}
                                     onChange={e => setData('role', e.target.value)}
                                     required
-                                    className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                    className="w-full border border-gray-200 rounded-lg  py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
                                 >
                                     {roles.map(r => (
                                         <option key={r.id} value={r.name}>

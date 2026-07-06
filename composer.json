@@ -12,6 +12,7 @@
         "laravel/framework": "^13.0",
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^3.0",
+        "mariosimao/notion-sdk-php": "^1.17",
         "phpoffice/phpspreadsheet": "^2.1",
         "phpoffice/phpword": "^1.4",
         "spatie/laravel-medialibrary": "^11.21",

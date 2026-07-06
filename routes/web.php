@@ -78,6 +78,11 @@ Route::prefix('archive')->name('archive.')->middleware(['auth'])->group(function
     Route::post('/folders/{folder}/copy', [FolderController::class, 'copy'])->name('folders.copy');
     Route::delete('/folders/{folder}', [FolderController::class, 'destroy'])->name('folders.destroy');
     Route::get('/api/folders/tree', [FolderController::class, 'tree'])->name('folders.tree');
+
+    // Notion integration
+    Route::get('/notion', [\App\Http\Controllers\Archive\NotionController::class, 'index'])->name('notion.index');
+    Route::get('/api/notion/rows', [\App\Http\Controllers\Archive\NotionController::class, 'rows'])->name('notion.rows');
+    Route::post('/api/notion/import', [\App\Http\Controllers\Archive\NotionController::class, 'import'])->name('notion.import');
     Route::get('/api/folders/{folder}/documents', [FolderController::class, 'documents'])->name('folders.documents');
 
     // Inventory (Physical archive QR verification)

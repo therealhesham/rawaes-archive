@@ -3,7 +3,7 @@ import { Link, usePage, router } from '@inertiajs/react';
 import {
     FolderOpen, FileText, Settings, Users, BarChart3,
     ChevronLeft, ChevronRight, Bell, Search, LogOut,
-    LayoutDashboard, Shield, Archive, Menu, X, ScanLine, Trash2, ClipboardList
+    LayoutDashboard, Shield, Archive, Menu, X, ScanLine, Trash2, ClipboardList, Database
 } from 'lucide-react';
 
 const allNavItems = [
@@ -18,6 +18,7 @@ const allNavItems = [
     { label: 'المستخدمون', href: '/users', icon: Users, match: '/users', requires: 'users.manage' },
     { label: 'الأدوار والصلاحيات', href: '/roles', icon: Shield, match: '/roles', requires: 'users.manage' },
     { label: 'التقارير', href: '/reports', icon: BarChart3, match: '/reports', requires: 'reports.view' },
+    { label: 'بيانات Notion', href: '/archive/notion', icon: Database, match: '/archive/notion', requires: 'reports.view' },
     { label: 'المسح الضوئي', href: '/archive/scans', icon: ScanLine, match: '/archive/scans', badge: 'pendingScansCount' },
     { label: 'الإشعارات', href: '/notifications', icon: Bell, match: '/notifications' },
 ];

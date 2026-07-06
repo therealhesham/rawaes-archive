@@ -30,6 +30,11 @@ return [
         'token' => env('SCAN_API_TOKEN'),
     ],
 
+    'notion' => [
+        'token' => env('NOTION_API_TOKEN'),
+        'database_id' => env('NOTION_DATABASE_ID'),
+    ],
+
     'integration' => [
         // Shared token for external systems that need to upload documents without user login.
         'token' => env('INTEGRATION_API_TOKEN'),

@@ -47,6 +47,10 @@ services:
       # OCR
       OCR_SPACE_API_KEY: ${OCR_SPACE_API_KEY}
 
+      # Notion
+      NOTION_API_TOKEN: ${NOTION_API_TOKEN}
+      NOTION_DATABASE_ID: ${NOTION_DATABASE_ID}
+
       # Scanner watcher
       SCAN_API_TOKEN: ${SCAN_API_TOKEN}
 

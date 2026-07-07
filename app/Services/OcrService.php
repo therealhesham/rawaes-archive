@@ -18,12 +18,34 @@ class OcrService
     }
 
     /**
+     * مسار محلي فعلي للملف — أدوات OCR (tesseract/pdftotext) تحتاج ملفاً على القرص.
+     * مع التخزين السحابي (DigitalOcean Spaces) يُنزَّل الملف إلى مجلد مؤقت أولاً.
+     */
+    protected function localPath(string $filePath): string
+    {
+        $disk = config('filesystems.archive_disk', 'local');
+
+        if ($disk === 'local') {
+            return Storage::disk('local')->path($filePath);
+        }
+
+        $tmp = sys_get_temp_dir() . '/ocr_' . md5($filePath)
+            . '.' . strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
+
+        if (!file_exists($tmp)) {
+            file_put_contents($tmp, Storage::disk($disk)->get($filePath));
+        }
+
+        return $tmp;
+    }
+
+    /**
      * Extract text from a file. Routes to OCR for images/PDF,
      * or direct text extraction for DOCX/TXT.
      */
     public function extract(string $filePath, string $language = 'ara'): ?string
     {
-        if (!Storage::disk('local')->exists($filePath)) {
+        if (!Storage::disk(config('filesystems.archive_disk', 'local'))->exists($filePath)) {
             Log::warning("OCR: file not found: {$filePath}");
             return null;
         }
@@ -40,12 +62,12 @@ class OcrService
         }
 
         if ($ext === 'txt') {
-            return Storage::disk('local')->get($filePath);
+            return Storage::disk(config('filesystems.archive_disk', 'local'))->get($filePath);
         }
 
         // PDF: if it contains selectable text, extract directly; otherwise run OCR.
         if ($ext === 'pdf') {
-            $fullPath = Storage::disk('local')->path($filePath);
+            $fullPath = $this->localPath($filePath);
             $text = $this->extractPdfText($fullPath, (int) (config('services.ocr.max_pages') ?? 10));
             if ($text) return $text;
             return $this->extractLocally($fullPath, $ext, $language);
@@ -53,7 +75,7 @@ class OcrService
 
         // OCR for images
         try {
-            $fullPath = Storage::disk('local')->path($filePath);
+            $fullPath = $this->localPath($filePath);
             $fileSize = filesize($fullPath);
 
             // If OCR.space key isn't configured (default demo key), use local OCR directly.
@@ -101,7 +123,7 @@ class OcrService
             Log::error('OCR exception: ' . $e->getMessage());
             // Fallback to local OCR on remote failures.
             try {
-                $fullPath = Storage::disk('local')->path($filePath);
+                $fullPath = $this->localPath($filePath);
                 return $this->extractLocally($fullPath, $ext, $language);
             } catch (\Throwable $e2) {
                 Log::error('OCR local fallback exception: ' . $e2->getMessage());
@@ -337,7 +359,7 @@ class OcrService
     protected function extractFromWord(string $filePath): ?string
     {
         try {
-            $fullPath = Storage::disk('local')->path($filePath);
+            $fullPath = $this->localPath($filePath);
             $phpWord = \PhpOffice\PhpWord\IOFactory::load($fullPath);
 
             $text = [];
@@ -358,7 +380,7 @@ class OcrService
     protected function extractFromExcel(string $filePath): ?string
     {
         try {
-            $fullPath = Storage::disk('local')->path($filePath);
+            $fullPath = $this->localPath($filePath);
             $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($fullPath);
 
             $lines = [];

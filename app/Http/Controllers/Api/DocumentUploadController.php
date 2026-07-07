@@ -56,7 +56,7 @@ class DocumentUploadController extends Controller
         }
 
         $file = $request->file('file');
-        $path = $file->store('archive/' . now()->format('Y/m'), 'local');
+        $path = $file->store('archive/' . now()->format('Y/m'), config('filesystems.archive_disk', 'local'));
         $qrCode = Str::uuid()->toString();
 
         $title = $validated['title']
@@ -106,7 +106,7 @@ class DocumentUploadController extends Controller
         // Reuse policy logic via Gate
         $this->authorize('download', $document);
 
-        return Storage::disk('local')->download($document->file_path, $document->file_name);
+        return Storage::disk(config('filesystems.archive_disk', 'local'))->download($document->file_path, $document->file_name);
     }
 }
 

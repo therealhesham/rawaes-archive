@@ -32,7 +32,7 @@ class ScanUploadController extends Controller
 
         $file = $request->file('file');
         $originalName = $validated['original_name'] ?? $file->getClientOriginalName();
-        $path = $file->store('scans/' . now()->format('Y/m/d'), 'local');
+        $path = $file->store('scans/' . now()->format('Y/m/d'), config('filesystems.archive_disk', 'local'));
 
         $scan = PendingScan::create([
             'original_name'   => $originalName,

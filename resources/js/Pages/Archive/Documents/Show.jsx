@@ -288,40 +288,41 @@ export default function ShowDocument({ document, folders }) {
                                     </div>
                                 </div>
                             </div>
-                            <div className="flex gap-2 shrink-0">
+                            <div className="flex items-center gap-1 shrink-0 bg-gray-50 rounded-xl p-1">
                                 <a
                                     href={`/archive/documents/${document.id}/download`}
-                                    className="flex items-center gap-1.5 px-3 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium transition-colors"
+                                    className="flex items-center gap-1.5 px-3.5 py-2 text-gray-500 hover:text-white hover:bg-emerald-600 rounded-lg text-sm font-medium transition-colors active:scale-95"
                                 >
                                     <Download size={15} />
                                     <span className="hidden sm:inline">تحميل</span>
                                 </a>
                                 <button
                                     onClick={() => setEmailOpen(true)}
-                                    className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+                                    className="flex items-center gap-1.5 px-3.5 py-2 text-gray-500 hover:text-white hover:bg-blue-600 rounded-lg text-sm font-medium transition-colors active:scale-95"
                                 >
                                     <Mail size={15} />
                                     <span className="hidden sm:inline">إرسال</span>
                                 </button>
                                 <button
                                     onClick={() => setMoveOpen(true)}
-                                    className="flex items-center gap-1.5 px-3 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg text-sm font-medium transition-colors"
+                                    className="flex items-center gap-1.5 px-3.5 py-2 text-gray-500 hover:text-white hover:bg-indigo-600 rounded-lg text-sm font-medium transition-colors active:scale-95"
                                 >
                                     <FolderOpen size={15} />
                                     <span className="hidden sm:inline">نقل</span>
                                 </button>
                                 <Link
                                     href={`/archive/documents/${document.id}/edit`}
-                                    className="flex items-center gap-1.5 px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-medium transition-colors"
+                                    className="flex items-center gap-1.5 px-3.5 py-2 text-gray-500 hover:text-white hover:bg-amber-500 rounded-lg text-sm font-medium transition-colors active:scale-95"
                                 >
                                     <Edit2 size={15} />
                                     <span className="hidden sm:inline">تعديل</span>
                                 </Link>
                                 <button
                                     onClick={handleDelete}
-                                    className="flex items-center gap-1.5 px-3 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors"
+                                    title="حذف المستند"
+                                    className="flex items-center justify-center p-2 text-gray-400 hover:text-white hover:bg-red-600 rounded-lg transition-colors active:scale-95"
                                 >
-                                    <Trash2 size={15} />
+                                    <Trash2 size={16} />
                                 </button>
                             </div>
                         </div>

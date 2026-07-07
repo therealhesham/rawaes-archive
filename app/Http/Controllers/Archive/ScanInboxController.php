@@ -73,7 +73,7 @@ class ScanInboxController extends Controller
 
         // Move the file to a permanent location under archive/
         $newPath = 'archive/' . now()->format('Y/m') . '/' . Str::random(32) . '.' . $pendingScan->file_extension;
-        Storage::disk('local')->move($pendingScan->file_path, $newPath);
+        Storage::disk(config('filesystems.archive_disk', 'local'))->move($pendingScan->file_path, $newPath);
 
         $doc = ArchiveDocument::create([
             'title' => $validated['title'],
@@ -113,7 +113,7 @@ class ScanInboxController extends Controller
     public function destroy(PendingScan $pendingScan)
     {
         AuditLog::record('scan_deleted', $pendingScan, $pendingScan->toArray(), [], "حذف مسح ضوئي: {$pendingScan->original_name}");
-        Storage::disk('local')->delete($pendingScan->file_path);
+        Storage::disk(config('filesystems.archive_disk', 'local'))->delete($pendingScan->file_path);
         $pendingScan->update(['status' => 'rejected']);
         $pendingScan->delete();
 
@@ -122,12 +122,14 @@ class ScanInboxController extends Controller
 
     public function preview(PendingScan $pendingScan)
     {
-        if (!Storage::disk('local')->exists($pendingScan->file_path)) {
+        if (!Storage::disk(config('filesystems.archive_disk', 'local'))->exists($pendingScan->file_path)) {
             abort(404);
         }
 
-        return response()->file(
-            Storage::disk('local')->path($pendingScan->file_path),
+        // بث الملف عبر Laravel (يعمل مع القرص المحلي وDigitalOcean Spaces)
+        return Storage::disk(config('filesystems.archive_disk', 'local'))->response(
+            $pendingScan->file_path,
+            'document.' . $pendingScan->file_extension,
             [
                 'Content-Type' => $pendingScan->mime_type,
                 'Content-Disposition' => 'inline; filename="document.' . $pendingScan->file_extension . '"',

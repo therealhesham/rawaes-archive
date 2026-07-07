@@ -44,7 +44,7 @@ class IntegrationDocumentUploadController extends Controller
         }
 
         $file = $request->file('file');
-        $path = $file->store('archive/' . now()->format('Y/m'), 'local');
+        $path = $file->store('archive/' . now()->format('Y/m'), config('filesystems.archive_disk', 'local'));
         $qrCode = Str::uuid()->toString();
         $title = $validated['title'] ?? pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
 

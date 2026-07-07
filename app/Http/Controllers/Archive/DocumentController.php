@@ -152,7 +152,7 @@ class DocumentController extends Controller
         $sources = (array) $request->input('sources', []);
 
         foreach ($request->file('files') as $file) {
-            $path = $file->store('archive/' . now()->format('Y/m'), 'local');
+            $path = $file->store('archive/' . now()->format('Y/m'), config('filesystems.archive_disk', 'local'));
             $qrCode = Str::uuid()->toString();
             $originalName = $file->getClientOriginalName();
 
@@ -315,13 +315,13 @@ class DocumentController extends Controller
             abort(403, 'لا تملك صلاحية النسخ إلى هذا المجلد');
         }
 
-        if (!Storage::disk('local')->exists($document->file_path)) {
+        if (!Storage::disk(config('filesystems.archive_disk', 'local'))->exists($document->file_path)) {
             throw ValidationException::withMessages(['folder_id' => 'ملف المستند الأصلي غير موجود']);
         }
 
         // نسخة فعلية جديدة من الملف على القرص
         $newPath = 'archive/' . now()->format('Y/m') . '/' . Str::random(32) . '.' . $document->file_extension;
-        Storage::disk('local')->copy($document->file_path, $newPath);
+        Storage::disk(config('filesystems.archive_disk', 'local'))->copy($document->file_path, $newPath);
 
         $copy = $document->replicate([
             'serial_number', 'qr_code', 'barcode',
@@ -400,21 +400,23 @@ class DocumentController extends Controller
         $this->authorize('download', $document);
         AuditLog::record('download', $document, [], [], "تحميل المستند: {$document->title}");
 
-        return Storage::disk('local')->download($document->file_path, $document->file_name);
+        return Storage::disk(config('filesystems.archive_disk', 'local'))->download($document->file_path, $document->file_name);
     }
 
     public function preview(ArchiveDocument $document)
     {
         $this->authorize('view', $document);
-        if (!Storage::disk('local')->exists($document->file_path)) {
+        if (!Storage::disk(config('filesystems.archive_disk', 'local'))->exists($document->file_path)) {
             abort(404);
         }
 
         $safeName = 'document.' . $document->file_extension;
         $encodedName = rawurlencode($document->file_name);
 
-        return response()->file(
-            Storage::disk('local')->path($document->file_path),
+        // بث الملف عبر Laravel (يعمل مع القرص المحلي وDigitalOcean Spaces)
+        return Storage::disk(config('filesystems.archive_disk', 'local'))->response(
+            $document->file_path,
+            $safeName,
             [
                 'Content-Type' => $document->mime_type,
                 'Content-Disposition' => "inline; filename=\"{$safeName}\"; filename*=UTF-8''{$encodedName}",

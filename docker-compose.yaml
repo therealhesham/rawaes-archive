@@ -43,6 +43,13 @@ services:
 
       # Storage
       FILESYSTEM_DISK: local
+      # قرص ملفات الأرشيف: local أو spaces (DigitalOcean)
+      ARCHIVE_DISK: ${ARCHIVE_DISK:-local}
+      DO_SPACES_KEY: ${DO_SPACES_KEY}
+      DO_SPACES_SECRET: ${DO_SPACES_SECRET}
+      DO_SPACES_REGION: ${DO_SPACES_REGION:-fra1}
+      DO_SPACES_BUCKET: ${DO_SPACES_BUCKET}
+      DO_SPACES_ENDPOINT: ${DO_SPACES_ENDPOINT}
 
       # OCR
       OCR_SPACE_API_KEY: ${OCR_SPACE_API_KEY}

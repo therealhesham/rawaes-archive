@@ -169,7 +169,7 @@ class NotionController extends Controller
                 }
 
                 $path = 'archive/' . now()->format('Y/m') . '/' . Str::random(32) . '.' . $ext;
-                Storage::disk('local')->put($path, $body);
+                Storage::disk(config('filesystems.archive_disk', 'local'))->put($path, $body);
 
                 $title = $item['name'] . ($i > 0 ? ' - ' . ($i + 1) : '');
 

@@ -34,7 +34,7 @@ class ProcessDocumentOcr implements ShouldQueue
             return;
         }
 
-        $text = $ocr->extract($doc->file_path, 'ara');
+        $text = $ocr->extract($doc->file_path, 'ara', $doc->disk());
 
         if ($text) {
             // Save OCR text (truncate if huge to avoid DB bloat)

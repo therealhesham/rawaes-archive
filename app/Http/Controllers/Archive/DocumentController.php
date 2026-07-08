@@ -151,8 +151,10 @@ class DocumentController extends Controller
         $documentNumbers = (array) $request->input('document_numbers', []);
         $sources = (array) $request->input('sources', []);
 
+        $diskName = config('filesystems.archive_disk', 'local');
+
         foreach ($request->file('files') as $file) {
-            $path = $file->store('archive/' . now()->format('Y/m'), config('filesystems.archive_disk', 'local'));
+            $path = $file->store('archive/' . now()->format('Y/m'), $diskName);
             $qrCode = Str::uuid()->toString();
             $originalName = $file->getClientOriginalName();
 
@@ -173,6 +175,7 @@ class DocumentController extends Controller
                 'uploaded_by' => auth()->id(),
                 'upload_source' => $uploadSource,
                 'file_path' => $path,
+                'storage_disk' => $diskName,
                 'file_name' => $file->getClientOriginalName(),
                 'file_extension' => $file->getClientOriginalExtension(),
                 'file_size' => $file->getSize(),
@@ -315,13 +318,13 @@ class DocumentController extends Controller
             abort(403, 'لا تملك صلاحية النسخ إلى هذا المجلد');
         }
 
-        if (!Storage::disk(config('filesystems.archive_disk', 'local'))->exists($document->file_path)) {
+        if (!Storage::disk($document->disk())->exists($document->file_path)) {
             throw ValidationException::withMessages(['folder_id' => 'ملف المستند الأصلي غير موجود']);
         }
 
-        // نسخة فعلية جديدة من الملف على القرص
+        // نسخة فعلية جديدة من الملف على نفس قرص الأصل
         $newPath = 'archive/' . now()->format('Y/m') . '/' . Str::random(32) . '.' . $document->file_extension;
-        Storage::disk(config('filesystems.archive_disk', 'local'))->copy($document->file_path, $newPath);
+        Storage::disk($document->disk())->copy($document->file_path, $newPath);
 
         $copy = $document->replicate([
             'serial_number', 'qr_code', 'barcode',
@@ -330,6 +333,7 @@ class DocumentController extends Controller
         $copy->folder_id = $folder->id;
         $copy->sector_id = $folder->sector_id ?? $document->sector_id;
         $copy->file_path = $newPath;
+        $copy->storage_disk = $document->disk();
         $copy->uploaded_by = $user->id;
         $copy->qr_code = Str::uuid()->toString();
         $copy->barcode = strtoupper(Str::random(12));
@@ -400,13 +404,13 @@ class DocumentController extends Controller
         $this->authorize('download', $document);
         AuditLog::record('download', $document, [], [], "تحميل المستند: {$document->title}");
 
-        return Storage::disk(config('filesystems.archive_disk', 'local'))->download($document->file_path, $document->file_name);
+        return Storage::disk($document->disk())->download($document->file_path, $document->file_name);
     }
 
     public function preview(ArchiveDocument $document)
     {
         $this->authorize('view', $document);
-        if (!Storage::disk(config('filesystems.archive_disk', 'local'))->exists($document->file_path)) {
+        if (!Storage::disk($document->disk())->exists($document->file_path)) {
             abort(404);
         }
 
@@ -414,7 +418,7 @@ class DocumentController extends Controller
         $encodedName = rawurlencode($document->file_name);
 
         // بث الملف عبر Laravel (يعمل مع القرص المحلي وDigitalOcean Spaces)
-        return Storage::disk(config('filesystems.archive_disk', 'local'))->response(
+        return Storage::disk($document->disk())->response(
             $document->file_path,
             $safeName,
             [

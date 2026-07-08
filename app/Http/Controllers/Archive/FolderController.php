@@ -238,11 +238,11 @@ class FolderController extends Controller
                 });
             }
             foreach ($docsQuery->get() as $doc) {
-                if (!Storage::disk(config('filesystems.archive_disk', 'local'))->exists($doc->file_path)) {
+                if (!Storage::disk($doc->disk())->exists($doc->file_path)) {
                     continue;
                 }
                 $newPath = 'archive/' . now()->format('Y/m') . '/' . Str::random(32) . '.' . $doc->file_extension;
-                Storage::disk(config('filesystems.archive_disk', 'local'))->copy($doc->file_path, $newPath);
+                Storage::disk($doc->disk())->copy($doc->file_path, $newPath);
 
                 $copyDoc = $doc->replicate([
                     'serial_number', 'qr_code', 'barcode',
@@ -251,6 +251,7 @@ class FolderController extends Controller
                 $copyDoc->folder_id = $new->id;
                 $copyDoc->sector_id = $targetSectorId;
                 $copyDoc->file_path = $newPath;
+                $copyDoc->storage_disk = $doc->disk();
                 $copyDoc->uploaded_by = $user->id;
                 $copyDoc->qr_code = Str::uuid()->toString();
                 $copyDoc->barcode = strtoupper(Str::random(12));

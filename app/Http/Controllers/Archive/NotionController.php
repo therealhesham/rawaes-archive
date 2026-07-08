@@ -168,8 +168,9 @@ class NotionController extends Controller
                     throw new \RuntimeException('نوع الملف غير مدعوم');
                 }
 
+                $diskName = config('filesystems.archive_disk', 'local');
                 $path = 'archive/' . now()->format('Y/m') . '/' . Str::random(32) . '.' . $ext;
-                Storage::disk(config('filesystems.archive_disk', 'local'))->put($path, $body);
+                Storage::disk($diskName)->put($path, $body);
 
                 $title = $item['name'] . ($i > 0 ? ' - ' . ($i + 1) : '');
 
@@ -181,6 +182,7 @@ class NotionController extends Controller
                     'uploaded_by' => $user->id,
                     'upload_source' => 'api',
                     'file_path' => $path,
+                    'storage_disk' => $diskName,
                     'file_name' => $file['name'] ?: ($title . '.' . $ext),
                     'file_extension' => $ext,
                     'file_size' => strlen($body),

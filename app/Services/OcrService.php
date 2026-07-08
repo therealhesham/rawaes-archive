@@ -11,6 +11,7 @@ class OcrService
 {
     protected string $apiKey;
     protected string $endpoint = 'https://api.ocr.space/parse/image';
+    protected string $diskName = 'local';
 
     public function __construct()
     {
@@ -23,9 +24,7 @@ class OcrService
      */
     protected function localPath(string $filePath): string
     {
-        $disk = config('filesystems.archive_disk', 'local');
-
-        if ($disk === 'local') {
+        if ($this->diskName === 'local') {
             return Storage::disk('local')->path($filePath);
         }
 
@@ -33,7 +32,7 @@ class OcrService
             . '.' . strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
 
         if (!file_exists($tmp)) {
-            file_put_contents($tmp, Storage::disk($disk)->get($filePath));
+            file_put_contents($tmp, Storage::disk($this->diskName)->get($filePath));
         }
 
         return $tmp;
@@ -42,10 +41,13 @@ class OcrService
     /**
      * Extract text from a file. Routes to OCR for images/PDF,
      * or direct text extraction for DOCX/TXT.
+     * $disk: قرص المستند الفعلي (من ArchiveDocument::disk())، يُترك فارغاً لاستخدام الإعداد العام.
      */
-    public function extract(string $filePath, string $language = 'ara'): ?string
+    public function extract(string $filePath, string $language = 'ara', ?string $disk = null): ?string
     {
-        if (!Storage::disk(config('filesystems.archive_disk', 'local'))->exists($filePath)) {
+        $this->diskName = $disk ?: config('filesystems.archive_disk', 'local');
+
+        if (!Storage::disk($this->diskName)->exists($filePath)) {
             Log::warning("OCR: file not found: {$filePath}");
             return null;
         }
@@ -62,7 +64,7 @@ class OcrService
         }
 
         if ($ext === 'txt') {
-            return Storage::disk(config('filesystems.archive_disk', 'local'))->get($filePath);
+            return Storage::disk($this->diskName)->get($filePath);
         }
 
         // PDF: if it contains selectable text, extract directly; otherwise run OCR.

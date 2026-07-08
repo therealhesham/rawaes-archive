@@ -3,63 +3,56 @@
 namespace App\Console\Commands;
 
 use App\Models\ArchiveDocument;
-use App\Models\PendingScan;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Storage;
 
 class MigrateArchiveStorage extends Command
 {
     protected $signature = 'archive:migrate-storage
-                            {--from=local : القرص المصدر}
                             {--to=spaces : القرص الهدف}
-                            {--delete-source : حذف الملفات من المصدر بعد النسخ الناجح}';
+                            {--delete-source : حذف الملفات من القرص القديم بعد النسخ الناجح}';
 
-    protected $description = 'نقل ملفات الأرشيف والمسحوبات بين قرصي تخزين (مثلاً من المحلي إلى DigitalOcean Spaces)';
+    protected $description = 'نقل جماعي لكل مستندات الأرشيف إلى قرص تخزين آخر (لأداة نقل انتقائي من الواجهة استخدم صفحة إدارة التخزين)';
 
     public function handle(): int
     {
-        $from = Storage::disk($this->option('from'));
-        $to = Storage::disk($this->option('to'));
+        $to = $this->option('to');
+        $toDisk = Storage::disk($to);
 
-        $paths = ArchiveDocument::withTrashed()->pluck('file_path')
-            ->merge(PendingScan::pluck('file_path'))
-            ->filter()
-            ->unique();
+        $docs = ArchiveDocument::withTrashed()->where('storage_disk', '!=', $to)->get();
 
-        $this->info("نقل {$paths->count()} ملف من {$this->option('from')} إلى {$this->option('to')}...");
+        $this->info("نقل {$docs->count()} مستند إلى {$to}...");
 
         $ok = $skipped = $failed = 0;
-        $bar = $this->output->createProgressBar($paths->count());
+        $bar = $this->output->createProgressBar($docs->count());
 
-        foreach ($paths as $path) {
+        foreach ($docs as $doc) {
             try {
-                if (!$from->exists($path)) {
+                $fromDisk = Storage::disk($doc->disk());
+                if (!$fromDisk->exists($doc->file_path)) {
                     $skipped++;
                     $bar->advance();
                     continue;
                 }
-                if (!$to->exists($path)) {
-                    $to->writeStream($path, $from->readStream($path));
+                if (!$toDisk->exists($doc->file_path)) {
+                    $toDisk->writeStream($doc->file_path, $fromDisk->readStream($doc->file_path));
                 }
                 if ($this->option('delete-source')) {
-                    $from->delete($path);
+                    $fromDisk->delete($doc->file_path);
                 }
+                $doc->update(['storage_disk' => $to]);
                 $ok++;
             } catch (\Throwable $e) {
                 $failed++;
                 $this->newLine();
-                $this->error("فشل: {$path} — {$e->getMessage()}");
+                $this->error("فشل: مستند #{$doc->id} — {$e->getMessage()}");
             }
             $bar->advance();
         }
 
         $bar->finish();
         $this->newLine(2);
-        $this->info("تم: {$ok} منقول، {$skipped} غير موجود بالمصدر، {$failed} فشل");
-
-        if ($failed === 0 && $ok > 0) {
-            $this->comment('غيّر الآن ARCHIVE_DISK=' . $this->option('to') . ' في ملف البيئة وأعد إنشاء الحاوية.');
-        }
+        $this->info("تم: {$ok} منقول، {$skipped} غير موجود، {$failed} فشل");
 
         return $failed === 0 ? self::SUCCESS : self::FAILURE;
     }

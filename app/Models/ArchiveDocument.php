@@ -16,7 +16,7 @@ class ArchiveDocument extends Model
     protected $fillable = [
         'serial_number',
         'title', 'document_number', 'folder_id', 'document_type_id', 'sector_id',
-        'uploaded_by', 'upload_source', 'file_path', 'file_name', 'file_extension', 'file_size',
+        'uploaded_by', 'upload_source', 'file_path', 'storage_disk', 'file_name', 'file_extension', 'file_size',
         'mime_type', 'issuing_entity', 'issue_date', 'expiry_date', 'no_expiry_date', 'physical_location',
         'qr_code', 'barcode', 'ocr_content', 'tags', 'notes', 'status', 'is_confidential',
         'is_checked_out', 'checked_out_to', 'checked_out_by', 'checked_out_at', 'checked_out_notes',
@@ -34,6 +34,16 @@ class ArchiveDocument extends Model
     ];
 
     protected $appends = ['is_expired', 'is_expiring_soon', 'file_size_formatted'];
+
+    /**
+     * قرص التخزين الفعلي لملف هذا المستند (local أو spaces).
+     * كل مستند يحمل قرصه الخاص بدلاً من الاعتماد على إعداد عام، حتى لا يتغيّر
+     * مكان قراءة ملف موجود فعلاً بمجرد تغيير إعداد ARCHIVE_DISK في البيئة.
+     */
+    public function disk(): string
+    {
+        return $this->storage_disk ?: config('filesystems.archive_disk', 'local');
+    }
 
     protected static function booted(): void
     {

@@ -108,6 +108,10 @@ Route::prefix('archive')->name('archive.')->middleware(['auth'])->group(function
     Route::post('/api/inventory/audits/{audit}/items/{item}/status', [InventoryController::class, 'auditItemSetStatus'])->name('inventory.audits.items.status');
     Route::get('/api/inventory/audits/{audit}/report.csv', [InventoryController::class, 'auditReportCsv'])->name('inventory.audits.report_csv');
 
+    Route::get('/storage', [\App\Http\Controllers\Archive\StorageController::class, 'index'])->name('storage.index');
+    Route::get('/api/storage/documents', [\App\Http\Controllers\Archive\StorageController::class, 'documents'])->name('storage.documents');
+    Route::post('/api/storage/transfer', [\App\Http\Controllers\Archive\StorageController::class, 'transfer'])->name('storage.transfer');
+
     Route::resource('sectors', SectorController::class);
     Route::resource('document-types', DocumentTypeController::class);
     Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('audit.index');

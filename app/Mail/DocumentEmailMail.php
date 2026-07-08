@@ -49,7 +49,7 @@ class DocumentEmailMail extends Mailable
     public function attachments(): array
     {
         return [
-            Attachment::fromStorageDisk('local', $this->document->file_path)
+            Attachment::fromStorageDisk($this->document->disk(), $this->document->file_path)
                 ->as($this->document->file_name)
                 ->withMime($this->document->mime_type),
         ];

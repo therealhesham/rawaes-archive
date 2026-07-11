@@ -106,7 +106,12 @@ function DocumentRow({ doc, can, folders }) {
                                 <FileText size={16} className={isExpired ? 'text-red-500' : isExpiringSoon ? 'text-amber-500' : 'text-blue-500'} />
                             </div>
                             <div>
-                                <p className="font-medium text-gray-800 text-sm">{doc.title}</p>
+                                <Link
+                                    href={`/archive/documents/${doc.id}`}
+                                    className="font-medium text-gray-800 text-sm hover:text-amber-600 hover:underline transition-colors"
+                                >
+                                    {doc.title}
+                                </Link>
                                 {doc.document_number && (
                                     <p className="text-xs text-gray-500">{doc.document_number}</p>
                                 )}

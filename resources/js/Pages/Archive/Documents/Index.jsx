@@ -25,6 +25,7 @@ const statusLabels = {
 
 function DocumentRow({ doc, can, folders }) {
     const [menuOpen, setMenuOpen] = useState(false);
+    const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
     const [moveOpen, setMoveOpen] = useState(false);
     const [custodyOpen, setCustodyOpen] = useState(false);
     const [custodyTo, setCustodyTo] = useState('');
@@ -40,6 +41,17 @@ function DocumentRow({ doc, can, folders }) {
     const canCheckout = !!can['documents.custody.checkout'];
     const canCheckin = !!can['documents.custody.checkin'];
     const canCustodyAction = isCheckedOut ? canCheckin : canCheckout;
+
+    const openMenu = (e) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const menuWidth = 192;
+        const menuHeight = 250;
+        setMenuPos({
+            top: rect.bottom + menuHeight > window.innerHeight ? rect.top - menuHeight : rect.bottom + 4,
+            left: Math.max(8, Math.min(rect.left, window.innerWidth - menuWidth - 8)),
+        });
+        setMenuOpen(true);
+    };
 
     const submitCustody = () => {
         if (!isCheckedOut && !custodyTo.trim()) return;
@@ -136,71 +148,96 @@ function DocumentRow({ doc, can, folders }) {
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-500">{doc.uploader?.name ?? '—'}</td>
                     <td className="px-4 py-3">
-                        <div className="flex items-center gap-1">
-                            {canCustodyAction && (
-                                <button
-                                    onClick={() => {
-                                        setCustodyOpen(true);
-                                        setCustodyTo('');
-                                        setCustodyNotes('');
-                                        setCustodySignature('');
-                                    }}
-                                    className={`p-1.5 rounded transition-colors ${
-                                        isCheckedOut
-                                            ? 'hover:bg-emerald-50 text-emerald-700'
-                                            : 'hover:bg-red-50 text-red-700'
-                                    }`}
-                                    title={isCheckedOut ? 'استلام عهدة' : 'تسليم عهدة'}
+                        <button
+                            onClick={openMenu}
+                            className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
+                            title="الإجراءات"
+                        >
+                            <MoreVertical size={16} />
+                        </button>
+
+                        {menuOpen && (
+                            <>
+                                <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
+                                <div
+                                    className="fixed z-50 w-48 bg-white rounded-lg shadow-lg border border-gray-100 py-1 text-right"
+                                    style={{ top: menuPos.top, left: menuPos.left }}
                                 >
-                                    {isCheckedOut ? <Hand size={16} /> : <Handshake size={16} />}
-                                </button>
-                            )}
-                            <Link
-                                href={`/archive/documents/${doc.id}`}
-                                className="p-1.5 rounded hover:bg-blue-50 text-gray-500 hover:text-blue-600 transition-colors"
-                                title="عرض"
-                            >
-                                <Eye size={16} />
-                            </Link>
-                            <Link
-                                href={`/archive/documents/${doc.id}/download`}
-                                className="p-1.5 rounded hover:bg-green-50 text-gray-500 hover:text-green-600 transition-colors"
-                                title="تحميل"
-                            >
-                                <Download size={16} />
-                            </Link>
-                            {can['documents.create'] && (
-                                <>
-                                    <button
-                                        onClick={() => setMoveOpen(true)}
-                                        className="p-1.5 rounded hover:bg-indigo-50 text-gray-500 hover:text-indigo-600 transition-colors"
-                                        title="نقل إلى مجلد آخر"
-                                    >
-                                        <FolderOpen size={16} />
-                                    </button>
                                     <Link
-                                        href={`/archive/documents/${doc.id}/edit`}
-                                        className="p-1.5 rounded hover:bg-amber-50 text-gray-500 hover:text-amber-600 transition-colors"
-                                        title="تعديل"
+                                        href={`/archive/documents/${doc.id}`}
+                                        onClick={() => setMenuOpen(false)}
+                                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
                                     >
-                                        <Edit2 size={16} />
+                                        <Eye size={15} className="text-gray-400" />
+                                        <span>عرض</span>
                                     </Link>
-                                </>
-                            )}
-                            {can['documents.delete'] && (
-                                <button
-                                    onClick={() => {
-                                        if (confirm('هل أنت متأكد من حذف هذا المستند؟')) {
-                                            router.delete(`/archive/documents/${doc.id}`);
-                                        }
-                                    }}
-                                    className="p-1.5 rounded hover:bg-red-50 text-gray-500 hover:text-red-600 transition-colors"
-                                    title="حذف"
-                                >
-                                    <Trash2 size={16} />
-                                </button>
-                            )}
-                        </div>
+                                    <Link
+                                        href={`/archive/documents/${doc.id}/download`}
+                                        onClick={() => setMenuOpen(false)}
+                                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                    >
+                                        <Download size={15} className="text-gray-400" />
+                                        <span>تحميل</span>
+                                    </Link>
+                                    {can['documents.create'] && (
+                                        <>
+                                            <button
+                                                onClick={() => {
+                                                    setMenuOpen(false);
+                                                    setMoveOpen(true);
+                                                }}
+                                                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                            >
+                                                <FolderOpen size={15} className="text-gray-400" />
+                                                <span>نقل إلى مجلد آخر</span>
+                                            </button>
+                                            <Link
+                                                href={`/archive/documents/${doc.id}/edit`}
+                                                onClick={() => setMenuOpen(false)}
+                                                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                            >
+                                                <Edit2 size={15} className="text-gray-400" />
+                                                <span>تعديل</span>
+                                            </Link>
+                                        </>
+                                    )}
+                                    {canCustodyAction && (
+                                        <button
+                                            onClick={() => {
+                                                setMenuOpen(false);
+                                                setCustodyOpen(true);
+                                                setCustodyTo('');
+                                                setCustodyNotes('');
+                                                setCustodySignature('');
+                                            }}
+                                            className={`w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 ${
+                                                isCheckedOut ? 'text-emerald-700' : 'text-red-700'
+                                            }`}
+                                        >
+                                            {isCheckedOut ? <Hand size={15} /> : <Handshake size={15} />}
+                                            <span>{isCheckedOut ? 'استلام عهدة' : 'تسليم عهدة'}</span>
+                                        </button>
+                                    )}
+                                    {can['documents.delete'] && (
+                                        <>
+                                            <div className="my-1 border-t border-gray-100" />
+                                            <button
+                                                onClick={() => {
+                                                    setMenuOpen(false);
+                                                    if (confirm('هل أنت متأكد من حذف هذا المستند؟')) {
+                                                        router.delete(`/archive/documents/${doc.id}`);
+                                                    }
+                                                }}
+                                                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                                            >
+                                                <Trash2 size={15} />
+                                                <span>حذف</span>
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
+                            </>
+                        )}
 
                         <MoveDocumentModal
                             document={doc}

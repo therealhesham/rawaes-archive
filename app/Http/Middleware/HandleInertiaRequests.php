@@ -40,6 +40,7 @@ class HandleInertiaRequests extends Middleware
                 'can' => $user ? [
                     'documents.create' => $user->can('documents.create'),
                     'documents.delete' => $user->can('documents.delete'),
+                    'documents.export' => $user->can('documents.export'),
                     'documents.custody.checkout' => $user->can('documents.custody.checkout'),
                     'documents.custody.checkin' => $user->can('documents.custody.checkin'),
                     'documents.trash.view' => $user->can('documents.trash.view'),

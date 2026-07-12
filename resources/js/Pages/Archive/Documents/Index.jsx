@@ -3,10 +3,12 @@ import { Head, Link, router, usePage } from '@inertiajs/react';
 import ArchiveLayout from '@/Layouts/ArchiveLayout';
 import SignaturePad from '@/Components/SignaturePad';
 import MoveDocumentModal from '@/Components/Archive/MoveDocumentModal';
+import RenewDocumentModal from '@/Components/Archive/RenewDocumentModal';
 import {
     Search, Filter, Download, Eye, Edit2, Trash2,
     FileText, AlertTriangle, Clock, CheckCircle, FolderOpen,
-    ChevronLeft, ChevronRight, MoreVertical, Upload, Handshake, Hand
+    ChevronLeft, ChevronRight, MoreVertical, Upload, Handshake, Hand,
+    CalendarClock
 } from 'lucide-react';
 
 const statusColors = {
@@ -27,6 +29,7 @@ function DocumentRow({ doc, can, folders }) {
     const [menuOpen, setMenuOpen] = useState(false);
     const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
     const [moveOpen, setMoveOpen] = useState(false);
+    const [renewOpen, setRenewOpen] = useState(false);
     const [custodyOpen, setCustodyOpen] = useState(false);
     const [custodyTo, setCustodyTo] = useState('');
     const [custodyNotes, setCustodyNotes] = useState('');
@@ -204,6 +207,18 @@ function DocumentRow({ doc, can, folders }) {
                                                 <Edit2 size={15} className="text-gray-400" />
                                                 <span>تعديل</span>
                                             </Link>
+                                            {(isExpired || isExpiringSoon) && (
+                                                <button
+                                                    onClick={() => {
+                                                        setMenuOpen(false);
+                                                        setRenewOpen(true);
+                                                    }}
+                                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-emerald-700 hover:bg-emerald-50"
+                                                >
+                                                    <CalendarClock size={15} />
+                                                    <span>تجديد الصلاحية</span>
+                                                </button>
+                                            )}
                                         </>
                                     )}
                                     {canCustodyAction && (
@@ -249,6 +264,12 @@ function DocumentRow({ doc, can, folders }) {
                             folders={folders}
                             open={moveOpen}
                             onClose={() => setMoveOpen(false)}
+                        />
+
+                        <RenewDocumentModal
+                            document={doc}
+                            open={renewOpen}
+                            onClose={() => setRenewOpen(false)}
                         />
 
                         {custodyOpen && (
@@ -444,13 +465,26 @@ export default function DocumentsIndex({ documents, sectors, folders, documentTy
                     <p className="text-sm text-gray-600">
                         {documents.total} مستند
                     </p>
-                    <Link
-                        href="/archive/documents/create"
-                        className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                    >
-                        <Upload size={16} />
-                        <span>رفع مستندات</span>
-                    </Link>
+                    <div className="flex items-center gap-2">
+                        {can['documents.export'] && (
+                            <a
+                                href={`/archive/documents/export?${new URLSearchParams(
+                                    Object.fromEntries(Object.entries(filters).filter(([, v]) => v))
+                                )}`}
+                                className="flex items-center gap-2 border border-gray-200 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                            >
+                                <Download size={16} />
+                                <span>تصدير</span>
+                            </a>
+                        )}
+                        <Link
+                            href="/archive/documents/create"
+                            className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                        >
+                            <Upload size={16} />
+                            <span>رفع مستندات</span>
+                        </Link>
+                    </div>
                 </div>
 
 	                <div className="overflow-x-auto">

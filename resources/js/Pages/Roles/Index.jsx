@@ -33,6 +33,7 @@ const permissionLabels = {
     'documents.edit': 'تعديل',
     'documents.delete': 'حذف',
     'documents.download': 'تحميل',
+    'documents.export': 'تصدير قائمة المستندات',
     'documents.print': 'طباعة',
     'documents.custody.checkout': 'تسليم عهدة',
     'documents.custody.checkin': 'استلام عهدة',

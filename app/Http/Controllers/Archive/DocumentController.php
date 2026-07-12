@@ -18,6 +18,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DocumentController extends Controller
 {
@@ -74,6 +75,125 @@ class DocumentController extends Controller
             'folders' => DocumentFolder::where('is_active', true)->get(),
             'documentTypes' => DocumentType::where('is_active', true)->get(),
             'filters' => $request->only(['search', 'sector_id', 'folder_id', 'type_id', 'status', 'expired', 'expiring_soon', 'date_from', 'date_to']),
+        ]);
+    }
+
+    public function export(Request $request): StreamedResponse
+    {
+        $user = auth()->user();
+        abort_unless($user->can('documents.export'), 403);
+
+        $allowedSectorIds = $user->accessibleSectorIds(); // [] = full access
+
+        $documents = ArchiveDocument::query()
+            ->with(['folder', 'documentType', 'sector', 'uploader'])
+            // Sector scoping based on accessible sectors
+            ->when(
+                !empty($allowedSectorIds),
+                fn($q) => $q->whereIn('sector_id', $allowedSectorIds)
+            )
+            // Hide confidential from others
+            ->when(
+                !$user->hasAnyRole(['super-admin', 'archive-manager']),
+                fn($q) => $q->where(function ($sub) use ($user) {
+                    $sub->where('is_confidential', false)
+                        ->orWhere('uploaded_by', $user->id);
+                })
+            )
+            ->when($request->search, fn($q) => $q->search($request->search))
+            ->when($request->sector_id, fn($q) => $q->where('sector_id', $request->sector_id))
+            ->when($request->folder_id, fn($q) => $q->where('folder_id', $request->folder_id))
+            ->when($request->type_id, fn($q) => $q->where('document_type_id', $request->type_id))
+            ->when($request->status, fn($q) => $q->where('status', $request->status))
+            ->when($request->expired === 'true', fn($q) => $q->expired())
+            ->when($request->expiring_soon === 'true', fn($q) => $q->expiringSoon())
+            ->when($request->date_from, fn($q) => $q->where('created_at', '>=', $request->date_from))
+            ->when($request->date_to, fn($q) => $q->where('created_at', '<=', $request->date_to))
+            ->orderByDesc('serial_number')
+            ->get();
+
+        // المسار الكامل للمجلد لكل مستند
+        $allFolders = DocumentFolder::withTrashed()->get(['id', 'parent_id', 'name'])->keyBy('id');
+        $folderPath = function ($folderId) use ($allFolders) {
+            $parts = [];
+            $guard = 0;
+            while ($folderId && ($f = $allFolders->get($folderId)) && $guard++ < 20) {
+                array_unshift($parts, $f->name);
+                $folderId = $f->parent_id;
+            }
+            return implode(' / ', $parts);
+        };
+
+        AuditLog::create([
+            'user_id'        => $user->id,
+            'user_name'      => $user->name,
+            'ip_address'     => $request->ip(),
+            'user_agent'     => $request->userAgent(),
+            'action'         => 'export',
+            'auditable_type' => ArchiveDocument::class,
+            'auditable_id'   => 0,
+            'new_values'     => ['count' => $documents->count(), 'filters' => $request->query()],
+            'description'    => "تصدير قائمة المستندات ({$documents->count()} مستند)",
+            'created_at'     => now(),
+        ]);
+
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('المستندات');
+        $sheet->setRightToLeft(true);
+
+        $headers = [
+            '#', 'العنوان', 'رقم الوثيقة', 'المجلد', 'القطاع', 'النوع',
+            'الحالة', 'تاريخ الانتهاء', 'رفع بواسطة', 'تاريخ الرفع',
+            'رابط العرض', 'رابط التحميل',
+        ];
+        $sheet->fromArray($headers, null, 'A1');
+        $sheet->getStyle('A1:L1')->applyFromArray([
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+            'fill' => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => 'D97706']],
+        ]);
+
+        $row = 2;
+        foreach ($documents as $doc) {
+            $showUrl = route('archive.documents.show', $doc);
+            $downloadUrl = route('archive.documents.download', $doc);
+
+            $sheet->fromArray([
+                $doc->serial_number ?? $doc->id,
+                $doc->title,
+                $doc->document_number ?? '',
+                $folderPath($doc->folder_id),
+                $doc->sector?->name ?? '',
+                $doc->documentType?->name ?? '',
+                $doc->status,
+                $doc->expiry_date?->format('Y-m-d') ?? '',
+                $doc->uploader?->name ?? '',
+                $doc->created_at?->format('Y-m-d H:i'),
+                'عرض المستند',
+                'تحميل الملف',
+            ], null, "A{$row}");
+
+            $sheet->getCell("K{$row}")->getHyperlink()->setUrl($showUrl);
+            $sheet->getCell("L{$row}")->getHyperlink()->setUrl($downloadUrl);
+            $sheet->getStyle("K{$row}:L{$row}")->getFont()
+                ->setUnderline(true)
+                ->getColor()->setRGB('2563EB');
+
+            $row++;
+        }
+
+        foreach (['A' => 8, 'B' => 40, 'C' => 18, 'D' => 30, 'E' => 20, 'F' => 18, 'G' => 12, 'H' => 15, 'I' => 20, 'J' => 17, 'K' => 15, 'L' => 15] as $col => $width) {
+            $sheet->getColumnDimension($col)->setWidth($width);
+        }
+
+        $filename = 'documents-export-' . now()->format('Y-m-d-Hi') . '.xlsx';
+
+        return new StreamedResponse(function () use ($spreadsheet) {
+            $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+            $writer->save('php://output');
+        }, 200, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
         ]);
     }
 
@@ -389,6 +509,32 @@ class DocumentController extends Controller
             ->with('success', 'تم تحديث المستند بنجاح');
     }
 
+    public function renew(Request $request, ArchiveDocument $document)
+    {
+        $this->authorize('update', $document);
+        $validated = $request->validate([
+            'expiry_date' => 'required|date|after:today',
+        ]);
+
+        $old = $document->toArray();
+        $document->update([
+            'expiry_date' => $validated['expiry_date'],
+            'no_expiry_date' => false,
+            'status' => $document->status === 'expired' ? 'active' : $document->status,
+            'expiry_notified_at' => null,
+        ]);
+
+        AuditLog::record(
+            'renew',
+            $document,
+            $old,
+            $document->fresh()->toArray(),
+            "تجديد صلاحية المستند \"{$document->title}\" حتى {$validated['expiry_date']}"
+        );
+
+        return back()->with('success', 'تم تجديد صلاحية المستند بنجاح');
+    }
+
     public function destroy(ArchiveDocument $document)
     {
         $this->authorize('delete', $document);
@@ -404,7 +550,21 @@ class DocumentController extends Controller
         $this->authorize('download', $document);
         AuditLog::record('download', $document, [], [], "تحميل المستند: {$document->title}");
 
-        return Storage::disk($document->disk())->download($document->file_path, $document->file_name);
+        $disk = $document->disk();
+
+        // التحميل مباشرة من DigitalOcean Spaces عبر رابط موقّع صالح لمدة قصيرة
+        if (config("filesystems.disks.{$disk}.driver") === 's3') {
+            $safeName = 'document.' . $document->file_extension;
+            $encodedName = rawurlencode($document->file_name);
+
+            return redirect()->away(Storage::disk($disk)->temporaryUrl(
+                $document->file_path,
+                now()->addMinutes(10),
+                ['ResponseContentDisposition' => "attachment; filename=\"{$safeName}\"; filename*=UTF-8''{$encodedName}"]
+            ));
+        }
+
+        return Storage::disk($disk)->download($document->file_path, $document->file_name);
     }
 
     public function preview(ArchiveDocument $document)
@@ -416,9 +576,22 @@ class DocumentController extends Controller
 
         $safeName = 'document.' . $document->file_extension;
         $encodedName = rawurlencode($document->file_name);
+        $disk = $document->disk();
 
-        // بث الملف عبر Laravel (يعمل مع القرص المحلي وDigitalOcean Spaces)
-        return Storage::disk($document->disk())->response(
+        // المعاينة مباشرة من DigitalOcean Spaces عبر رابط موقّع صالح لمدة قصيرة
+        if (config("filesystems.disks.{$disk}.driver") === 's3') {
+            return redirect()->away(Storage::disk($disk)->temporaryUrl(
+                $document->file_path,
+                now()->addMinutes(10),
+                [
+                    'ResponseContentType' => $document->mime_type,
+                    'ResponseContentDisposition' => "inline; filename=\"{$safeName}\"; filename*=UTF-8''{$encodedName}",
+                ]
+            ));
+        }
+
+        // بث الملف عبر Laravel (للقرص المحلي)
+        return Storage::disk($disk)->response(
             $document->file_path,
             $safeName,
             [

@@ -25,7 +25,7 @@ return [
     |
     */
 
-    'archive_disk' => env('ARCHIVE_DISK', 'local'),
+    'archive_disk' => env('ARCHIVE_DISK', 'spaces'),
 
     /*
     |--------------------------------------------------------------------------

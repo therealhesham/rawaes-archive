@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import ArchiveLayout from '@/Layouts/ArchiveLayout';
 import MoveDocumentModal from '@/Components/Archive/MoveDocumentModal';
+import RenewDocumentModal from '@/Components/Archive/RenewDocumentModal';
 import { QRCodeSVG } from 'qrcode.react';
 import {
     FileText, Download, Edit2, Trash2, ArrowLeft, Calendar,
     Building2, User, Clock, QrCode, MapPin, Lock, Shield,
     FolderOpen, Archive, Tag, FileType, AlertTriangle, CheckCircle,
-    Printer, ScanSearch, Sparkles, Loader2, Mail, X, Send, Plus
+    Printer, ScanSearch, Sparkles, Loader2, Mail, X, Send, Plus,
+    CalendarClock
 } from 'lucide-react';
 
 function EmailModal({ document, open, onClose }) {
@@ -175,6 +177,7 @@ export default function ShowDocument({ document, folders }) {
     const [ocrAutoRequested, setOcrAutoRequested] = useState(false);
     const [emailOpen, setEmailOpen] = useState(false);
     const [moveOpen, setMoveOpen] = useState(false);
+    const [renewOpen, setRenewOpen] = useState(false);
     const ext = document.file_extension?.toLowerCase();
     const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
     const isPdf = ext === 'pdf';
@@ -289,6 +292,15 @@ export default function ShowDocument({ document, folders }) {
                                 </div>
                             </div>
                             <div className="flex items-center gap-1 shrink-0 bg-gray-50 rounded-xl p-1">
+                                {(document.is_expired || document.is_expiring_soon) && (
+                                    <button
+                                        onClick={() => setRenewOpen(true)}
+                                        className="flex items-center gap-1.5 px-3.5 py-2 text-emerald-700 hover:text-white hover:bg-emerald-600 rounded-lg text-sm font-medium transition-colors active:scale-95"
+                                    >
+                                        <CalendarClock size={15} />
+                                        <span className="hidden sm:inline">تجديد الصلاحية</span>
+                                    </button>
+                                )}
                                 <a
                                     href={`/archive/documents/${document.id}/download`}
                                     className="flex items-center gap-1.5 px-3.5 py-2 text-gray-500 hover:text-white hover:bg-emerald-600 rounded-lg text-sm font-medium transition-colors active:scale-95"
@@ -333,6 +345,12 @@ export default function ShowDocument({ document, folders }) {
                         folders={folders}
                         open={moveOpen}
                         onClose={() => setMoveOpen(false)}
+                    />
+
+                    <RenewDocumentModal
+                        document={document}
+                        open={renewOpen}
+                        onClose={() => setRenewOpen(false)}
                     />
 
                     {/* File preview */}

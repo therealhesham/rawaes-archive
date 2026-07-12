@@ -108,7 +108,20 @@ class DocumentUploadController extends Controller
         // Reuse policy logic via Gate
         $this->authorize('download', $document);
 
-        return Storage::disk($document->disk())->download($document->file_path, $document->file_name);
+        $disk = $document->disk();
+
+        // التحميل مباشرة من DigitalOcean Spaces عبر رابط موقّع صالح لمدة قصيرة
+        if (config("filesystems.disks.{$disk}.driver") === 's3') {
+            $encodedName = rawurlencode($document->file_name);
+
+            return redirect()->away(Storage::disk($disk)->temporaryUrl(
+                $document->file_path,
+                now()->addMinutes(10),
+                ['ResponseContentDisposition' => "attachment; filename=\"document.{$document->file_extension}\"; filename*=UTF-8''{$encodedName}"]
+            ));
+        }
+
+        return Storage::disk($disk)->download($document->file_path, $document->file_name);
     }
 }
 

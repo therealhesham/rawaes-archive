@@ -45,6 +45,7 @@ Route::middleware('auth')->group(function () {
 Route::prefix('archive')->name('archive.')->middleware(['auth'])->group(function () {
     Route::get('/documents', [DocumentController::class, 'index'])->name('documents.index');
     Route::get('/documents/create', [DocumentController::class, 'create'])->name('documents.create');
+    Route::get('/documents/export', [DocumentController::class, 'export'])->name('documents.export');
     Route::post('/documents', [DocumentController::class, 'store'])->name('documents.store');
     Route::get('/documents/{document}', [DocumentController::class, 'show'])->name('documents.show');
     Route::get('/documents/{document}/edit', [DocumentController::class, 'edit'])->name('documents.edit');
@@ -54,6 +55,7 @@ Route::prefix('archive')->name('archive.')->middleware(['auth'])->group(function
     Route::get('/documents/{document}/preview', [DocumentController::class, 'preview'])->name('documents.preview');
     Route::post('/documents/{document}/move', [DocumentController::class, 'move'])->name('documents.move');
     Route::post('/documents/{document}/copy', [DocumentController::class, 'copy'])->name('documents.copy');
+    Route::post('/documents/{document}/renew', [DocumentController::class, 'renew'])->name('documents.renew');
     Route::post('/documents/{document}/ocr', [DocumentController::class, 'runOcr'])->name('documents.ocr');
     Route::post('/documents/{document}/email', [DocumentController::class, 'email'])->name('documents.email');
     Route::post('/documents/{document}/custody/checkout', [DocumentController::class, 'custodyCheckout'])->name('documents.custody.checkout');

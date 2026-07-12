@@ -44,7 +44,7 @@ services:
       # Storage
       FILESYSTEM_DISK: local
       # قرص ملفات الأرشيف: local أو spaces (DigitalOcean)
-      ARCHIVE_DISK: ${ARCHIVE_DISK:-local}
+      ARCHIVE_DISK: ${ARCHIVE_DISK:-spaces}
       DO_SPACES_KEY: ${DO_SPACES_KEY}
       DO_SPACES_SECRET: ${DO_SPACES_SECRET}
       DO_SPACES_REGION: ${DO_SPACES_REGION:-fra1}

@@ -26,6 +26,17 @@ return [
         'api_key' => env('OCR_SPACE_API_KEY', 'helloworld'),
     ],
 
+    // OpenRouter — استخراج نص المستندات بالذكاء الاصطناعي (نماذج vision).
+    'openrouter' => [
+        'api_key'   => env('OPENROUTER_API_KEY'),
+        'model'     => env('OPENROUTER_MODEL', 'google/gemini-2.5-flash'),
+        'base_url'  => env('OPENROUTER_BASE_URL', 'https://openrouter.ai/api/v1'),
+        // أقصى عدد صفحات تُرسل للنموذج من ملفات PDF (لتفادي التكلفة العالية).
+        'max_pages' => (int) env('OPENROUTER_MAX_PAGES', 5),
+        // دقة تحويل صفحات PDF إلى صور قبل إرسالها للنموذج.
+        'dpi'       => (int) env('OPENROUTER_DPI', 200),
+    ],
+
     'scan' => [
         'token' => env('SCAN_API_TOKEN'),
     ],

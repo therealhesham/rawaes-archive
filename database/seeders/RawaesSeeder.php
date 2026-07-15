@@ -27,6 +27,7 @@ class RawaesSeeder extends Seeder
             'documents.delete', 'documents.download', 'documents.print',
             'documents.custody.checkout', 'documents.custody.checkin',
             'documents.trash.view', 'documents.restore', 'documents.force_delete',
+            'documents.ai_extract',
             'folders.manage', 'sectors.manage', 'users.manage',
             'audit.view', 'reports.view',
             'inventory.view',

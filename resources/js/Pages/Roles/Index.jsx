@@ -40,6 +40,7 @@ const permissionLabels = {
     'documents.trash.view': 'عرض سلة المحذوفات',
     'documents.restore': 'استرجاع من سلة المحذوفات',
     'documents.force_delete': 'حذف نهائي من سلة المحذوفات',
+    'documents.ai_extract': 'إعادة الاستخراج بالذكاء الاصطناعي',
     'folders.manage': 'إدارة المجلدات',
     'sectors.manage': 'إدارة القطاعات وأنواع المستندات',
     'users.manage': 'إدارة المستخدمين',

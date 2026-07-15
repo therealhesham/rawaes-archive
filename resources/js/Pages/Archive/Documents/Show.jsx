@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import ArchiveLayout from '@/Layouts/ArchiveLayout';
 import MoveDocumentModal from '@/Components/Archive/MoveDocumentModal';
 import RenewDocumentModal from '@/Components/Archive/RenewDocumentModal';
@@ -9,7 +9,7 @@ import {
     Building2, User, Clock, QrCode, MapPin, Lock, Shield,
     FolderOpen, Archive, Tag, FileType, AlertTriangle, CheckCircle,
     Printer, ScanSearch, Sparkles, Loader2, Mail, X, Send, Plus,
-    CalendarClock
+    CalendarClock, Bot
 } from 'lucide-react';
 
 function EmailModal({ document, open, onClose }) {
@@ -173,7 +173,12 @@ const statusLabels = {
 };
 
 export default function ShowDocument({ document, folders }) {
+    const { auth } = usePage().props;
+    const can = auth?.can ?? {};
+    const canAiExtract = !!can['documents.ai_extract'];
     const [runningOcr, setRunningOcr] = useState(false);
+    const [runningAi, setRunningAi] = useState(false);
+    const [aiBaseline, setAiBaseline] = useState(null);
     const [ocrAutoRequested, setOcrAutoRequested] = useState(false);
     const [emailOpen, setEmailOpen] = useState(false);
     const [moveOpen, setMoveOpen] = useState(false);
@@ -192,6 +197,39 @@ export default function ShowDocument({ document, folders }) {
             { preserveScroll: true, preserveState: true }
         );
     };
+
+    const runAiOcr = () => {
+        setAiBaseline(document.ocr_content ?? '');
+        setRunningAi(true);
+        router.post(
+            `/archive/documents/${document.id}/ai-ocr`,
+            { async: true },
+            { preserveScroll: true, preserveState: true }
+        );
+    };
+
+    // Poll for the AI result: stop once ocr_content changes from the pre-run baseline.
+    useEffect(() => {
+        if (!runningAi) return;
+
+        if ((document.ocr_content ?? '') !== aiBaseline) {
+            setRunningAi(false);
+            return;
+        }
+
+        let tries = 0;
+        const timer = setInterval(() => {
+            tries += 1;
+            router.reload({ preserveScroll: true, preserveState: true, only: ['document'] });
+            if (tries >= 24) { // ~2 minutes
+                clearInterval(timer);
+                setRunningAi(false);
+            }
+        }, 5000);
+
+        return () => clearInterval(timer);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [runningAi, document.ocr_content, aiBaseline]);
 
     useEffect(() => {
         if (!ocrSupported) return;
@@ -429,16 +467,31 @@ export default function ShowDocument({ document, folders }) {
                                         </span>
                                     )}
                                 </h3>
-                                <button
-                                    onClick={runOcr}
-                                    disabled={runningOcr}
-                                    className="flex items-center gap-1.5 text-xs text-purple-600 hover:text-purple-700 hover:bg-purple-50 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
-                                >
-                                    {runningOcr
-                                        ? <><Loader2 size={14} className="animate-spin" /> جاري الاستخراج...</>
-                                        : <><Sparkles size={14} /> {document.ocr_content ? 'إعادة الاستخراج' : 'استخراج النص'}</>
-                                    }
-                                </button>
+                                <div className="flex items-center gap-2">
+                                    {canAiExtract && (
+                                        <button
+                                            onClick={runAiOcr}
+                                            disabled={runningAi || runningOcr}
+                                            title="قراءة المستند واستخراج نص نظيف بالذكاء الاصطناعي"
+                                            className="flex items-center gap-1.5 text-xs text-white bg-gradient-to-l from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                                        >
+                                            {runningAi
+                                                ? <><Loader2 size={14} className="animate-spin" /> جاري الاستخراج بالـ AI...</>
+                                                : <><Bot size={14} /> إعادة الاستخراج بالـ AI</>
+                                            }
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={runOcr}
+                                        disabled={runningOcr || runningAi}
+                                        className="flex items-center gap-1.5 text-xs text-purple-600 hover:text-purple-700 hover:bg-purple-50 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                                    >
+                                        {runningOcr
+                                            ? <><Loader2 size={14} className="animate-spin" /> جاري الاستخراج...</>
+                                            : <><Sparkles size={14} /> {document.ocr_content ? 'إعادة الاستخراج' : 'استخراج النص'}</>
+                                        }
+                                    </button>
+                                </div>
                             </div>
 
                             {document.ocr_content ? (

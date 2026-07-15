@@ -54,6 +54,13 @@ services:
       # OCR
       OCR_SPACE_API_KEY: ${OCR_SPACE_API_KEY}
 
+      # OpenRouter (استخراج نص المستندات بالذكاء الاصطناعي)
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-google/gemini-2.5-flash}
+      OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
+      OPENROUTER_MAX_PAGES: ${OPENROUTER_MAX_PAGES:-5}
+      OPENROUTER_DPI: ${OPENROUTER_DPI:-200}
+
       # Notion
       NOTION_API_TOKEN: ${NOTION_API_TOKEN}
       NOTION_DATABASE_ID: ${NOTION_DATABASE_ID}

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Archive;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\ProcessDocumentAiExtraction;
 use App\Jobs\ProcessDocumentOcr;
 use App\Mail\DocumentEmailMail;
 use App\Models\ArchiveDocument;
@@ -619,6 +620,31 @@ class DocumentController extends Controller
         ProcessDocumentOcr::dispatchSync($document->id);
 
         return back()->with('success', 'تم استخراج النص من المستند');
+    }
+
+    /**
+     * إعادة الاستخراج بالذكاء الاصطناعي عبر OpenRouter (يتطلب صلاحية documents.ai_extract).
+     */
+    public function runAiOcr(Request $request, ArchiveDocument $document)
+    {
+        $this->authorize('view', $document);
+        abort_unless($request->user()?->can('documents.ai_extract'), 403);
+
+        if (!app(\App\Services\OpenRouterExtractionService::class)->isConfigured()) {
+            return back()->with('error', 'خدمة الذكاء الاصطناعي غير مُهيّأة (OPENROUTER_API_KEY مفقود)');
+        }
+
+        AuditLog::record('ai_extract', $document, [], [], "إعادة استخراج بالذكاء الاصطناعي: {$document->title}");
+
+        // غير متزامن افتراضياً لتفادي حجب الطلب.
+        if ($request->boolean('async', true)) {
+            ProcessDocumentAiExtraction::dispatch($document->id);
+            return back()->with('success', 'تم بدء الاستخراج بالذكاء الاصطناعي وسيظهر عند اكتماله');
+        }
+
+        ProcessDocumentAiExtraction::dispatchSync($document->id);
+
+        return back()->with('success', 'تم استخراج النص بالذكاء الاصطناعي');
     }
 
     public function email(Request $request, ArchiveDocument $document)

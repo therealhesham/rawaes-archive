@@ -57,6 +57,7 @@ Route::prefix('archive')->name('archive.')->middleware(['auth'])->group(function
     Route::post('/documents/{document}/copy', [DocumentController::class, 'copy'])->name('documents.copy');
     Route::post('/documents/{document}/renew', [DocumentController::class, 'renew'])->name('documents.renew');
     Route::post('/documents/{document}/ocr', [DocumentController::class, 'runOcr'])->name('documents.ocr');
+    Route::post('/documents/{document}/ai-ocr', [DocumentController::class, 'runAiOcr'])->name('documents.ai_ocr');
     Route::post('/documents/{document}/email', [DocumentController::class, 'email'])->name('documents.email');
     Route::post('/documents/{document}/custody/checkout', [DocumentController::class, 'custodyCheckout'])->name('documents.custody.checkout');
     Route::post('/documents/{document}/custody/checkin', [DocumentController::class, 'custodyCheckin'])->name('documents.custody.checkin');

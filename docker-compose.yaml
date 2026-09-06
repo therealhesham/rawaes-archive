@@ -83,6 +83,8 @@ services:
       MAIL_FROM_NAME: ${MAIL_FROM_NAME:-روائس}
 
       BCRYPT_ROUNDS: 12
+      MAGICK_THREAD_LIMIT: '1'
+      OMP_NUM_THREADS: '1'
     volumes:
       - app-storage:/var/www/html/storage/app
     depends_on:

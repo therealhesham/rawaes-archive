@@ -43,6 +43,21 @@ export default function UserForm({ user, sectors, folders = [], roles }) {
         setData('allowed_folder_ids', next);
     };
 
+    const toggleAllFolders = () => {
+        const allIds = folders.map(f => f.id);
+        const allSelected = allIds.every(id => data.allowed_folder_ids.includes(id));
+        setData('allowed_folder_ids', allSelected ? [] : allIds);
+    };
+
+    const toggleGroupFolders = (groupFolders) => {
+        const ids = groupFolders.map(f => f.id);
+        const allSelected = ids.every(id => data.allowed_folder_ids.includes(id));
+        const next = allSelected
+            ? data.allowed_folder_ids.filter(x => !ids.includes(x))
+            : [...new Set([...data.allowed_folder_ids, ...ids])];
+        setData('allowed_folder_ids', next);
+    };
+
     const isAdmin = ['super-admin', 'archive-manager', 'auditor'].includes(data.role);
 
     // Group folders by sector for display
@@ -231,15 +246,35 @@ export default function UserForm({ user, sectors, folders = [], roles }) {
                                 <div className="p-2.5 bg-green-50 rounded-lg">
                                     <FolderOpen size={22} className="text-green-500" />
                                 </div>
-                                <div>
+                                <div className="flex-1">
                                     <h2 className="font-bold text-gray-800">المجلدات المسموح بها</h2>
                                     <p className="text-xs text-gray-500">حدد المجلدات المحددة (اختياري — لو تركته فارغاً يقدر يرفع في أي مجلد ضمن قطاعاته)</p>
                                 </div>
+                                <label className="flex items-center gap-2 text-xs font-semibold text-amber-600 cursor-pointer whitespace-nowrap">
+                                    <input
+                                        type="checkbox"
+                                        checked={folders.length > 0 && folders.every(f => data.allowed_folder_ids.includes(f.id))}
+                                        onChange={toggleAllFolders}
+                                        className="w-3.5 h-3.5 accent-amber-500"
+                                    />
+                                    تحديد الكل
+                                </label>
                             </div>
                             <div className="space-y-3 max-h-96 overflow-y-auto">
                                 {foldersBySector.map(s => (
                                     <div key={s.id} className="border rounded-lg p-3 bg-gray-50">
-                                        <p className="text-sm font-semibold text-gray-700 mb-2">{s.name}</p>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <p className="text-sm font-semibold text-gray-700">{s.name}</p>
+                                            <label className="flex items-center gap-1.5 text-xs text-amber-600 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={s.folders.every(f => data.allowed_folder_ids.includes(f.id))}
+                                                    onChange={() => toggleGroupFolders(s.folders)}
+                                                    className="w-3 h-3 accent-amber-500"
+                                                />
+                                                تحديد الكل
+                                            </label>
+                                        </div>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
                                             {s.folders.map(f => (
                                                 <label key={f.id} className="flex items-center gap-2 text-xs cursor-pointer p-1.5 hover:bg-white rounded">
